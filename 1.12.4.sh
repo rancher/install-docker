@@ -24,7 +24,7 @@ set -e
 #
 
 url="https://get.docker.com/"
-docker_version=1.12.5
+docker_version=1.12.4
 apt_url="https://apt.dockerproject.org"
 yum_url="https://yum.dockerproject.org"
 gpg_fingerprint="58118E89F3A912897C070ADBF76221572C52609D"
