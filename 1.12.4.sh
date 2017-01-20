@@ -450,7 +450,8 @@ do_install() {
 			$sh_c "apt-key adv -k ${gpg_fingerprint} >/dev/null"
 			$sh_c "mkdir -p /etc/apt/sources.list.d"
 			$sh_c "echo deb \[arch=$(dpkg --print-architecture)\] ${apt_url}/repo ${lsb_dist}-${dist_version} ${repo} > /etc/apt/sources.list.d/docker.list"
-			$sh_c "sleep 3; apt-get update; apt-get install -y -q docker-engine=${docker_version}-0~${dist_version}"
+			$sh_c "sleep 3; apt-get update"
+			$sh_c "apt-get install -y -q docker-engine=$(apt-cache madison docker-engine | grep ${docker_version} | head -n 1 | cut -d ' ' -f 3)"
 			)
 			echo_docker_as_nonroot
 			exit 0
