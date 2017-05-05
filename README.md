@@ -1,7 +1,7 @@
 # install-docker
 Scripts for docker-machine to install a particular docker version
 
-Hosted at https://releases.rancher.com/install-docker/, e.g.: 
+Hosted at https://releases.rancher.com/install-docker/x.y[.z].sh, e.g.: 
 
   - https://releases.rancher.com/install-docker/1.10.sh
   - https://releases.rancher.com/install-docker/1.11.sh
