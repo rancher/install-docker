@@ -510,6 +510,13 @@ do_install() {
 			)
 			exit 0
 			;;
+		rancheros)
+			(
+			set -x
+			$sh_c "sleep 3; ros engine switch -f $(sudo ros engine list | grep ${docker_version} | head -n 1 | cut -d ' ' -f 2)"
+			)
+			exit 0
+			;;
 	esac
 
 	# intentionally mixed spaces and tabs here -- tabs are stripped by "<<-'EOF'", spaces are kept in the output
