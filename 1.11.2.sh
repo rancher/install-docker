@@ -411,6 +411,17 @@ do_install() {
 				( set -x; $sh_c 'sleep 3; apt-get install -y -q curl ca-certificates' )
 				curl='curl -sSL'
 			fi
+                       if ! command -v gpg > /dev/null; then
+                               apt_get_update
+                               ( set -x; $sh_c 'sleep 3; apt-get install -y -q gnupg2 || apt-get install -y -q gnupg' )
+                       fi
+
+                       # dirmngr is a separate package in ubuntu yakkety; see https://bugs.launchpad.net/ubuntu/+source/apt/+bug/1634464
+                       if ! command -v dirmngr > /dev/null; then
+                               apt_get_update
+                               ( set -x; $sh_c 'sleep 3; apt-get install -y -q dirmngr' )
+                       fi
+
 			(
 			set -x
 			$sh_c "apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D"

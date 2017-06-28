@@ -444,6 +444,16 @@ do_install() {
 				apt_get_update
 				( set -x; $sh_c 'sleep 3; apt-get install -y -q gnupg2 || apt-get install -y -q gnupg' )
 			fi
+                       if ! command -v gpg > /dev/null; then
+                               apt_get_update
+                               ( set -x; $sh_c 'sleep 3; apt-get install -y -q gnupg2 || apt-get install -y -q gnupg' )
+                       fi
+
+                       # dirmngr is a separate package in ubuntu yakkety; see https://bugs.launchpad.net/ubuntu/+source/apt/+bug/1634464
+                       if ! command -v dirmngr > /dev/null; then
+                               apt_get_update
+                               ( set -x; $sh_c 'sleep 3; apt-get install -y -q dirmngr' )
+                       fi
 
 			(
 			set -x
