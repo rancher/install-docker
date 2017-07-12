@@ -1,39 +1,49 @@
 #!/bin/sh
 set -e
-#
-# This script is meant for quick & easy install via:
-#   'curl -sSL https://get.docker.com/ | sh'
-# or:
-#   'wget -qO- https://get.docker.com/ | sh'
-#
-# For test builds (ie. release candidates):
-#   'curl -fsSL https://test.docker.com/ | sh'
-# or:
-#   'wget -qO- https://test.docker.com/ | sh'
-#
-# For experimental builds:
-#   'curl -fsSL https://experimental.docker.com/ | sh'
-# or:
-#   'wget -qO- https://experimental.docker.com/ | sh'
-#
-# Docker Maintainers:
-#   To update this script on https://get.docker.com,
-#   use hack/release.sh during a normal release,
-#   or the following one-liner for script hotfixes:
-#     aws s3 cp --acl public-read hack/install.sh s3://get.docker.com/index
-#
 
-url="https://get.docker.com/"
+CHANNEL="edge"
+
 docker_version=17.04.0
 apt_url="https://apt.dockerproject.org"
 yum_url="https://yum.dockerproject.org"
-gpg_fingerprint="58118E89F3A912897C070ADBF76221572C52609D"
+gpg_fingerprint="9DC858229FC7DD38854AE2D88D81803C0EBFCD88"
 
 key_servers="
 ha.pool.sks-keyservers.net
 pgp.mit.edu
 keyserver.ubuntu.com
 "
+
+rhel_repos="
+rhel-7-server-extras-rpms
+rhui-REGION-rhel-server-extras
+rhui-rhel-7-server-rhui-extras-rpms
+"
+
+mirror=''
+while [ $# -gt 0 ]; do
+	case "$1" in
+		--mirror)
+			mirror="$2"
+			shift
+			;;
+		*)
+			echo "Illegal option $1"
+			;;
+	esac
+	shift $(( $# > 0 ? 1 : 0 ))
+done
+
+case "$mirror" in
+	AzureChinaCloud)
+		apt_url="https://mirror.azure.cn/docker-engine/apt"
+		yum_url="https://mirror.azure.cn/docker-engine/yum"
+		;;
+	Aliyun)
+		apt_url="https://mirrors.aliyun.com/docker-engine/apt"
+		yum_url="https://mirrors.aliyun.com/docker-engine/yum"
+		;;
+esac
 
 command_exists() {
 	command -v "$@" > /dev/null 2>&1
@@ -57,6 +67,12 @@ echo_docker_as_nonroot() {
 	  sudo usermod -aG docker $your_user
 
 	Remember that you will have to log out and back in for this to take effect!
+
+	WARNING: Adding a user to the "docker" group will grant the ability to run
+	         containers which can be used to obtain root privileges on the
+	         docker host.
+	         Refer to https://docs.docker.com/engine/security/security/#docker-daemon-attack-surface
+	         for more information.
 
 	EOF
 }
@@ -93,9 +109,9 @@ check_forked() {
 				lsb_dist=debian
 				dist_version="$(cat /etc/debian_version | sed 's/\/.*//' | sed 's/\..*//')"
 				case "$dist_version" in
-                                       9)
-                                               dist_version="stretch"
-                                       ;;
+					9)
+						dist_version="stretch"
+					;;
 					8|'Kali Linux 2')
 						dist_version="jessie"
 					;;
@@ -108,19 +124,6 @@ check_forked() {
 	fi
 }
 
-rpm_import_repository_key() {
-	local key=$1; shift
-	local tmpdir=$(mktemp -d)
-	chmod 600 "$tmpdir"
-	for key_server in $key_servers ; do
-		gpg --homedir "$tmpdir" --keyserver "$key_server" --recv-keys "$key" && break
-	done
-	gpg --homedir "$tmpdir" -k "$key" >/dev/null
-	gpg --homedir "$tmpdir" --export --armor "$key" > "$tmpdir"/repo.key
-	rpm --import "$tmpdir"/repo.key
-	rm -rf "$tmpdir"
-}
-
 semverParse() {
 	major="${1%%.*}"
 	minor="${1#$major.}"
@@ -129,23 +132,48 @@ semverParse() {
 	patch="${patch%%[-.]*}"
 }
 
+deprecation_notice() {
+	echo
+	echo
+	echo "  WARNING: $1 is no longer updated @ $url"
+	echo "           Installing the legacy docker-engine package..."
+	echo
+	echo
+	sleep 10;
+}
+
 do_install() {
-	case "$(uname -m)" in
-		*64)
+
+	architecture=$(uname -m)
+	case $architecture in
+		# officially supported
+		amd64|x86_64)
 			;;
+		# unofficially supported with available repositories
 		armv6l|armv7l)
 			;;
+		# unofficially supported without available repositories
+		aarch64|arm64|ppc64le|s390x)
+			cat 1>&2 <<-EOF
+			Error: This install script does not support $architecture, because no
+			$architecture package exists in Docker's repositories.
+
+			Other install options include checking your distribution's package repository
+			for a version of Docker, or building Docker from source.
+			EOF
+			exit 1
+			;;
+		# not supported
 		*)
-			cat >&2 <<-'EOF'
-			Error: you are not using a 64bit platform or a Raspberry Pi (armv6l/armv7l).
-			Docker currently only supports 64bit platforms or a Raspberry Pi (armv6l/armv7l).
+			cat >&2 <<-EOF
+			Error: $architecture is not a recognized platform.
 			EOF
 			exit 1
 			;;
 	esac
 
 	if command_exists docker; then
-		version="$(docker -v | awk -F '[ ,]+' '{ print $3 }')"
+		version="$(docker -v | cut -d ' ' -f3 | cut -d ',' -f1)"
 		MAJOR_W=1
 		MINOR_W=10
 
@@ -259,8 +287,8 @@ do_install() {
 
 	# Special case redhatenterpriseserver
 	if [ "${lsb_dist}" = "redhatenterpriseserver" ]; then
-        	# Set it to redhat, it will be changed to centos below anyways
-        	lsb_dist='redhat'
+		# Set it to redhat, it will be changed to centos below anyways
+		lsb_dist='redhat'
 	fi
 
 	case "$lsb_dist" in
@@ -277,6 +305,9 @@ do_install() {
 		debian|raspbian)
 			dist_version="$(cat /etc/debian_version | sed 's/\/.*//' | sed 's/\..*//')"
 			case "$dist_version" in
+				9)
+					dist_version="stretch"
+				;;
 				8)
 					dist_version="jessie"
 				;;
@@ -313,75 +344,79 @@ do_install() {
 
 	# Run setup for each distro accordingly
 	case "$lsb_dist" in
-		amzn)
+		ubuntu|debian)
+			pre_reqs="apt-transport-https ca-certificates curl"
+			if [ "$lsb_dist" = "debian" ] && [ "$dist_version" = "wheezy" ]; then
+				pre_reqs="$pre_reqs python-software-properties"
+				backports="deb http://ftp.debian.org/debian wheezy-backports main"
+				if ! grep -Fxq "$backports" /etc/apt/sources.list; then
+					(set -x; $sh_c "echo \"$backports\" >> /etc/apt/sources.list")
+				fi
+			else
+				pre_reqs="$pre_reqs software-properties-common"
+			fi
+			if ! command -v gpg > /dev/null; then
+				pre_reqs="$pre_reqs gnupg"
+			fi
+			apt_repo="deb [arch=$(dpkg --print-architecture)] https://download.docker.com/linux/$lsb_dist $dist_version $CHANNEL"
 			(
-			set -x
-			$sh_c 'sleep 3; yum -y -q install docker'
+				set -x
+				$sh_c 'apt-get update'
+				$sh_c "apt-get install -y -q $pre_reqs"
+				curl -fsSl "https://download.docker.com/linux/$lsb_dist/gpg" | $sh_c 'apt-key add -'
+				$sh_c "add-apt-repository \"$apt_repo\""
+				if [ "$lsb_dist" = "debian" ] && [ "$dist_version" = "wheezy" ]; then
+					$sh_c 'sed -i "/deb-src.*download\.docker/d" /etc/apt/sources.list'
+				fi
+				$sh_c 'apt-get update'
+				$sh_c "apt-get install -y -q docker-ce=$(apt-cache madison docker-ce | grep ${docker_version} | head -n 1 | cut -d ' ' -f 4)"
 			)
 			echo_docker_as_nonroot
 			exit 0
 			;;
-
-		'opensuse project'|opensuse)
-			echo 'Going to perform the following operations:'
-			if [ "$repo" != 'main' ]; then
-				echo '  * add repository obs://Virtualization:containers'
-			fi
-			echo '  * install Docker'
-			$sh_c 'echo "Press CTRL-C to abort"; sleep 3'
-
-			if [ "$repo" != 'main' ]; then
-				# install experimental packages from OBS://Virtualization:containers
-				(
-					set -x
-					zypper -n ar -f obs://Virtualization:containers Virtualization:containers
-					rpm_import_repository_key 55A0B34D49501BB7CA474F5AA193FBB572174FC2
-				)
+		centos|fedora|redhat|oraclelinux)
+			yum_repo="https://download.docker.com/linux/centos/docker-ce.repo"
+			if [ "$lsb_dist" = "fedora" ]; then
+				if [ "$dist_version" -lt "24" ]; then
+					echo "Error: Only Fedora >=24 are supported by $url"
+					exit 1
+				fi
+				pkg_manager="dnf"
+				config_manager="dnf config-manager"
+				enable_channel_flag="--set-enabled"
+				pre_reqs="dnf-plugins-core"
+			else
+				pkg_manager="yum"
+				config_manager="yum-config-manager"
+				enable_channel_flag="--enable"
+				pre_reqs="yum-utils"
 			fi
 			(
 				set -x
-				zypper -n install docker
+			        if [ "$lsb_dist" = "redhat" ]; then
+                                        for rhel_repo in $rhel_repos ; do
+                                                $sh_c "$config_manager $enable_channel_flag $rhel_repo"
+                                        done
+                                fi
+				$sh_c "$pkg_manager install -y -q $pre_reqs"
+				$sh_c "$config_manager --add-repo $yum_repo"
+				if [ "$CHANNEL" != "stable" ]; then
+					echo "Info: Enabling channel '$CHANNEL' for docker-ce repo"
+					$sh_c "$config_manager $enable_channel_flag docker-ce-$CHANNEL"
+				fi
+				$sh_c "$pkg_manager makecache fast"
+				$sh_c "$pkg_manager install -y -q --setopt=obsoletes=0 docker-ce-${docker_version}.ce"
+				if [ -d '/run/systemd/system' ]; then
+					$sh_c 'service docker start'
+				else
+					$sh_c 'systemctl start docker'
+				fi
 			)
 			echo_docker_as_nonroot
 			exit 0
 			;;
-		'suse linux'|sle[sd])
-			echo 'Going to perform the following operations:'
-			if [ "$repo" != 'main' ]; then
-				echo '  * add repository obs://Virtualization:containers'
-				echo '  * install experimental Docker using packages NOT supported by SUSE'
-			else
-				echo '  * add the "Containers" module'
-				echo '  * install Docker using packages supported by SUSE'
-			fi
-			$sh_c 'echo "Press CTRL-C to abort"; sleep 3'
-
-			if [ "$repo" != 'main' ]; then
-				# install experimental packages from OBS://Virtualization:containers
-				echo >&2 'Warning: installing experimental packages from OBS, these packages are NOT supported by SUSE'
-				(
-					set -x
-					zypper -n ar -f obs://Virtualization:containers/SLE_12 Virtualization:containers
-					rpm_import_repository_key 55A0B34D49501BB7CA474F5AA193FBB572174FC2
-				)
-			else
-				# Add the containers module
-				# Note well-1: the SLE machine must already be registered against SUSE Customer Center
-				# Note well-2: the `-r ""` is required to workaround a known issue of SUSEConnect
-				(
-					set -x
-					SUSEConnect -p sle-module-containers/12/x86_64 -r ""
-				)
-			fi
-			(
-				set -x
-				zypper -n install docker
-			)
-			echo_docker_as_nonroot
-			exit 0
-			;;
-
-		ubuntu|debian|raspbian)
+		raspbian)
+			deprecation_notice "$lsb_dist"
 			export DEBIAN_FRONTEND=noninteractive
 
 			did_apt_get_update=
@@ -392,11 +427,7 @@ do_install() {
 				fi
 			}
 
-			if [ "$lsb_dist" = "raspbian" ]; then
-				# Create Raspbian specific systemd drop-in file, use overlay by default
-				( set -x; $sh_c "mkdir -p /etc/systemd/system/docker.service.d" )
-				( set -x; $sh_c "echo '[Service]\nExecStart=\nExecStart=/usr/bin/dockerd --storage-driver overlay -H fd://' > /etc/systemd/system/docker.service.d/overlay.conf" )
-			else
+			if [ "$lsb_dist" != "raspbian" ]; then
 				# aufs is preferred over devicemapper; try to ensure the driver is available.
 				if ! grep -q aufs /proc/filesystems && ! $sh_c 'modprobe aufs'; then
 					if uname -r | grep -q -- '-generic' && dpkg -l 'linux-image-*-generic' | grep -qE '^ii|^hi' 2>/dev/null; then
@@ -413,7 +444,7 @@ do_install() {
 					else
 						echo >&2 'Warning: current kernel is not supported by the linux-image-extra-virtual'
 						echo >&2 ' package.  We have no AUFS support.  Consider installing the packages'
-						echo >&2 ' linux-image-virtual kernel and linux-image-extra-virtual for AUFS support.'
+						echo >&2 ' "linux-image-virtual" and "linux-image-extra-virtual" for AUFS support.'
 						( set -x; sleep 10 )
 					fi
 				fi
@@ -440,88 +471,28 @@ do_install() {
 				( set -x; $sh_c 'sleep 3; apt-get install -y -q curl ca-certificates' )
 				curl='curl -sSL'
 			fi
-			if [ ! -e /usr/bin/gpg ]; then
+			if ! command -v gpg > /dev/null; then
 				apt_get_update
 				( set -x; $sh_c 'sleep 3; apt-get install -y -q gnupg2 || apt-get install -y -q gnupg' )
 			fi
-                       if ! command -v gpg > /dev/null; then
-                               apt_get_update
-                               ( set -x; $sh_c 'sleep 3; apt-get install -y -q gnupg2 || apt-get install -y -q gnupg' )
-                       fi
 
-                       # dirmngr is a separate package in ubuntu yakkety; see https://bugs.launchpad.net/ubuntu/+source/apt/+bug/1634464
-                       if ! command -v dirmngr > /dev/null; then
-                               apt_get_update
-                               ( set -x; $sh_c 'sleep 3; apt-get install -y -q dirmngr' )
-                       fi
+			# dirmngr is a separate package in ubuntu yakkety; see https://bugs.launchpad.net/ubuntu/+source/apt/+bug/1634464
+			if ! command -v dirmngr > /dev/null; then
+				apt_get_update
+				( set -x; $sh_c 'sleep 3; apt-get install -y -q dirmngr' )
+			fi
 
 			(
 			set -x
-			for key_server in $key_servers ; do
-				$sh_c "apt-key adv --keyserver hkp://${key_server}:80 --recv-keys ${gpg_fingerprint}" && break
-			done
-			$sh_c "apt-key adv -k ${gpg_fingerprint} >/dev/null"
+                        for key_server in $key_servers ; do
+                                $sh_c "apt-key adv --keyserver hkp://${key_server}:80 --recv-keys ${gpg_fingerprint}" && break
+                        done
+                        $sh_c "apt-key adv -k ${gpg_fingerprint} >/dev/null"
 			$sh_c "mkdir -p /etc/apt/sources.list.d"
 			$sh_c "echo deb \[arch=$(dpkg --print-architecture)\] ${apt_url}/repo ${lsb_dist}-${dist_version} ${repo} > /etc/apt/sources.list.d/docker.list"
-			$sh_c "sleep 3; apt-get update"
-			$sh_c "apt-get install -y -q docker-engine=$(apt-cache madison docker-engine | grep ${docker_version} | head -n 1 | cut -d ' ' -f 3)"
+			$sh_c 'sleep 3; apt-get update; apt-get install -y -q docker-engine'
 			)
 			echo_docker_as_nonroot
-			exit 0
-			;;
-
-		fedora|centos|redhat|oraclelinux)
-			if [ "${lsb_dist}" = "redhat" ]; then
-				# we use the centos repository for both redhat and centos releases
-				lsb_dist='centos'
-			fi
-			$sh_c "cat >/etc/yum.repos.d/docker-${repo}.repo" <<-EOF
-			[docker-${repo}-repo]
-			name=Docker ${repo} Repository
-			baseurl=${yum_url}/repo/${repo}/${lsb_dist}/${dist_version}
-			enabled=1
-			gpgcheck=1
-			gpgkey=${yum_url}/gpg
-			EOF
-			if [ "$lsb_dist" = "fedora" ] && [ "$dist_version" -ge "22" ]; then
-				(
-					set -x
-					$sh_c "sleep 3; dnf -y -q install docker-engine-${docker_version}"
-				)
-			else
-				(
-					set -x
-					$sh_c "sleep 3; yum -y -q install docker-engine-${docker_version}"
-				)
-			fi
-			echo_docker_as_nonroot
-			exit 0
-			;;
-		gentoo)
-			if [ "$url" = "https://test.docker.com/" ]; then
-				# intentionally mixed spaces and tabs here -- tabs are stripped by "<<-'EOF'", spaces are kept in the output
-				cat >&2 <<-'EOF'
-
-				  You appear to be trying to install the latest nightly build in Gentoo.'
-				  The portage tree should contain the latest stable release of Docker, but'
-				  if you want something more recent, you can always use the live ebuild'
-				  provided in the "docker" overlay available via layman.  For more'
-				  instructions, please see the following URL:'
-
-				    https://github.com/tianon/docker-overlay#using-this-overlay'
-
-				  After adding the "docker" overlay, you should be able to:'
-
-				    emerge -av =app-emulation/docker-9999'
-
-				EOF
-				exit 1
-			fi
-
-			(
-				set -x
-				$sh_c 'sleep 3; emerge app-emulation/docker'
-			)
 			exit 0
 			;;
 		rancheros)
@@ -536,12 +507,11 @@ do_install() {
 	# intentionally mixed spaces and tabs here -- tabs are stripped by "<<-'EOF'", spaces are kept in the output
 	cat >&2 <<-'EOF'
 
-	  Either your platform is not easily detectable, is not supported by this
-	  installer script (yet - PRs welcome! [hack/install.sh]), or does not yet have
-	  a package for Docker.  Please visit the following URL for more detailed
-	  installation instructions:
+	Either your platform is not easily detectable or is not supported by this
+	installer script.
+	Please visit the following URL for more detailed installation instructions:
 
-	    https://docs.docker.com/engine/installation/
+	https://docs.docker.com/engine/installation/
 
 	EOF
 	exit 1
