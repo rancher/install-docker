@@ -485,12 +485,12 @@ do_install() {
 			if [ "$lsb_dist" = "fedora" ] && [ "$dist_version" -ge "22" ]; then
 				(
 					set -x
-					$sh_c "sleep 3; dnf -y -q install docker-engine-${docker_version}"
+					$sh_c "sleep 3; dnf -y -q install docker-engine-${docker_version} docker-engine-selinux-${docker_version}"
 				)
 			else
 				(
 					set -x
-					$sh_c "sleep 3; yum -y -q install docker-engine-${docker_version}"
+					$sh_c "sleep 3; yum -y -q install docker-engine-${docker_version} docker-engine-selinux-${docker_version}"
 				)
 			fi
 			echo_docker_as_nonroot
