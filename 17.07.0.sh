@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-CHANNEL="stable"
+CHANNEL="edge"
 
 docker_version=17.07.0
 apt_url="https://apt.dockerproject.org"
