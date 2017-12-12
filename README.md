@@ -13,3 +13,4 @@ Hosted at https://releases.rancher.com/install-docker/x.y[.z].sh, e.g.:
   - https://releases.rancher.com/install-docker/17.06.sh
   - https://releases.rancher.com/install-docker/17.07.sh
   - https://releases.rancher.com/install-docker/17.09.sh
+  - https://releases.rancher.com/install-docker/17.10.sh
