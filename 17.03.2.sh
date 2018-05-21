@@ -369,7 +369,7 @@ do_install() {
 					$sh_c 'sed -i "/deb-src.*download\.docker/d" /etc/apt/sources.list'
 				fi
 				$sh_c 'apt-get update'
-				$sh_c "apt-get install -y -q docker-ce=$(apt-cache madison docker-ce | grep ${docker_version} | head -n 1 | cut -d ' ' -f 4)"
+				$sh_c "apt-get install -y -q --allow-downgrades docker-ce=$(apt-cache madison docker-ce | grep ${docker_version} | head -n 1 | cut -d ' ' -f 4)"
 			)
 			echo_docker_as_nonroot
 			exit 0
