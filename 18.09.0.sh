@@ -405,7 +405,7 @@ do_install() {
 					$sh_c "$config_manager $enable_channel_flag docker-ce-$CHANNEL"
 				fi
 				$sh_c "$pkg_manager makecache fast"
-				$sh_c "$pkg_manager install -y -q docker-ce-${docker_version}.ce"
+				$sh_c "$pkg_manager install -y -q docker-ce-${docker_version}"
 				if [ -d '/run/systemd/system' ]; then
 					$sh_c 'service docker start'
 				else
