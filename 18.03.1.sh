@@ -18,6 +18,7 @@ rhel_repos="
 rhel-7-server-extras-rpms
 rhui-REGION-rhel-server-extras
 rhui-rhel-7-server-rhui-extras-rpms
+rhui-rhel-7-for-arm-64-extras-rhui-rpms
 "
 
 mirror=''
@@ -147,13 +148,13 @@ do_install() {
 	architecture=$(uname -m)
 	case $architecture in
 		# officially supported
-		amd64|x86_64)
+		amd64|aarch64|arm64|x86_64)
 			;;
 		# unofficially supported with available repositories
 		armv6l|armv7l)
 			;;
 		# unofficially supported without available repositories
-		aarch64|arm64|ppc64le|s390x)
+		ppc64le|s390x)
 			cat 1>&2 <<-EOF
 			Error: This install script does not support $architecture, because no
 			$architecture package exists in Docker's repositories.
