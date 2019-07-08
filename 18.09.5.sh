@@ -109,6 +109,9 @@ check_forked() {
 				lsb_dist=debian
 				dist_version="$(cat /etc/debian_version | sed 's/\/.*//' | sed 's/\..*//')"
 				case "$dist_version" in
+					10)
+						dist_version="buster"
+					;;
 					9)
 						dist_version="stretch"
 					;;
