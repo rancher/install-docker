@@ -498,7 +498,11 @@ do_install() {
 		rancheros)
 			(
 			set -x
-			$sh_c "sleep 3; ros engine switch -f $(sudo ros engine list | grep ${docker_version} | head -n 1 | cut -d ' ' -f 2)"
+			$sh_c "sleep 3;ros engine list --update"
+			engine_version="$(sudo ros engine list | awk '{print $2}' | grep ${docker_version} | tail -n 1)"
+			if [ "$engine_version" != "" ]; then
+				$sh_c "ros engine switch -f $engine_version"
+			fi
 			)
 			exit 0
 			;;
