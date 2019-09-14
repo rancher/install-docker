@@ -346,6 +346,7 @@ do_install() {
 	# Run setup for each distro accordingly
 	case "$lsb_dist" in
 		ubuntu|debian)
+			export DEBIAN_FRONTEND=noninteractive
 			pre_reqs="apt-transport-https ca-certificates curl"
 			if [ "$lsb_dist" = "debian" ] && [ "$dist_version" = "wheezy" ]; then
 				pre_reqs="$pre_reqs python-software-properties"
