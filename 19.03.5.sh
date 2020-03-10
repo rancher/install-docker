@@ -332,6 +332,10 @@ do_install() {
 			dist_version="$(rpm -q --whatprovides ${lsb_dist}-release --queryformat "%{VERSION}\n" | sed 's/\/.*//' | sed 's/\..*//' | sed 's/Server*//' | sort | tail -1)"
 		;;
 
+		sles)
+			dist_version="$(rpm -q --whatprovides ${lsb_dist}-release --queryformat "%{VERSION}\n" | sed 's/\/.*//' | sort | tail -1)"
+		;;
+
 		*)
 			if command_exists lsb_release; then
 				dist_version="$(lsb_release --codename | cut -f2)"
@@ -509,6 +513,41 @@ do_install() {
 				$sh_c "ros engine switch -f $engine_version"
 			fi
 			)
+			exit 0
+			;;
+		sles)
+			(
+			set -x
+			$sh_c 'zypper -q -n refresh'
+			docker_pkg=$(zypper -q -n se -s docker | grep -E "\sdocker\s.*${docker_version//\./\\.}.*$architecture" | sort --sort=v -k3 | tail -1 | cut -d '|' -f4 | cut -d ' ' -f2)
+			if [ -z "$docker_pkg" ]; then
+				semverParse $docker_version
+				trunc_docker_version=$major.$minor
+				available_docker_pkgs=$(zypper -q -n se -s docker | grep -E "\sdocker\s.*${trunc_docker_version//\./\\.}.*$architecture" | sort --sort=v -k3 | cut -d '|' -f4 | cut -d ' ' -f2 | cut -d '_' -f1)
+				if [ -z "$available_docker_pkgs" ]; then
+					cat >&2 <<-EOF
+					No package for docker found that matches the requested version $docker_version for $architecture and no other patch versions found for $trunc_docker_version for $architecture.
+
+					Please add a repository using zypper that is able to provide the requested version of docker and ensure that the repository is enabled.
+					EOF
+					exit 1
+				fi
+				cat >&2 <<-EOF
+				No package for docker found that matches requested version $docker_version for $architecture.
+
+				Packages found for docker ${trunc_docker_version}:
+				$available_docker_pkgs
+				EOF
+				exit 1
+			fi
+			$sh_c "zypper -q -n install -f --force-resolution docker-$docker_pkg.$architecture"
+			if [ -d '/run/systemd/system' ]; then
+				$sh_c 'service docker start'
+			else
+				$sh_c 'systemctl start docker'
+			fi
+			)
+			echo_docker_as_nonroot
 			exit 0
 			;;
 	esac
