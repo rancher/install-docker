@@ -1,0 +1,67 @@
+---
+kind: pipeline
+type: docker
+name: default
+
+platform:
+  os: linux
+  arch: amd64
+
+steps:
+- name: test_ubuntu:16.04_17.03
+  image: ubuntu:16.04
+  commands:
+  - echo '' > /usr/bin/systemctl
+  - sh 17.03.sh
+  - docker -v
+
+- name: test_ubuntu:18.04_18.06
+  image: ubuntu:18.04
+  commands:
+  - echo '' > /usr/bin/systemctl
+  - sh 18.06.sh
+  - docker -v
+
+- name: test_ubuntu:18.04_18.09
+  image: ubuntu:18.04
+  commands:
+  - echo '' > /usr/bin/systemctl
+  - sh 18.09.sh
+  - docker -v
+
+- name: test_ubuntu:18.04_19.03
+  image: ubuntu:18.04
+  commands:
+  - echo '' > /usr/bin/systemctl
+  - sh 19.03.sh
+  - docker -v
+
+- name: test_ubuntu:20.04_19.03
+  image: ubuntu:20.04
+  commands:
+  - echo '' > /usr/bin/systemctl
+  - sh 19.03.sh
+  - docker -v
+
+- name: test_centos:7.7.1908_19.03
+  image: centos:7.7.1908
+  commands:
+  - echo '' > /usr/bin/systemctl
+  - sh 19.03.sh
+  - docker -v
+
+- name: test_centos:7.8.2003_19.03
+  image: centos:7.8.2003
+  commands:
+  - echo '' > /usr/bin/systemctl
+  - sh 19.03.sh
+  - docker -v
+
+- name: test_centos:8.2.2004_19.03
+  image: centos:8.2.2004
+  commands:
+  - echo '' > /usr/bin/systemctl
+  - sh 19.03.sh
+  - docker -v
+
+...
