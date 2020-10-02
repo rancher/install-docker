@@ -21,6 +21,10 @@ rhui-rhel-7-server-rhui-extras-rpms
 rhui-rhel-7-for-arm-64-extras-rhui-rpms
 "
 
+ol_repos="
+ol7_addons
+"
+
 mirror=''
 while [ $# -gt 0 ]; do
 	case "$1" in
@@ -425,6 +429,12 @@ do_install() {
                                                 $sh_c "$config_manager $enable_channel_flag $rhel_repo"
                                         done
                                 fi
+			        if [ "$lsb_dist" = "oraclelinux" ]; then
+                                        for ol_repo in $ol_repos ; do
+                                                $sh_c "$config_manager $enable_channel_flag $ol_repo"
+                                        done
+                                fi
+
 				$sh_c "$pkg_manager install -y -q $pre_reqs"
 				$sh_c "$config_manager --add-repo $yum_repo"
 				if [ "$CHANNEL" != "stable" ]; then
