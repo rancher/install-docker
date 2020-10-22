@@ -421,29 +421,44 @@ do_install() {
 				pkg_manager="yum"
 				config_manager="yum-config-manager"
 				enable_channel_flag="--enable"
-				pre_reqs="yum-utils"
+				pre_reqs="yum-utils iptables"
 			fi
 			(
 				set -x
+				$sh_c "$pkg_manager install -y -q $pre_reqs"
 			        if [ "$lsb_dist" = "redhat" ]; then
-                                        for rhel_repo in $rhel_repos ; do
-                                                $sh_c "$config_manager $enable_channel_flag $rhel_repo"
-                                        done
+                                        case $dist_version in
+                                                7*)
+                                                        for rhel_repo in $rhel_repos ; do
+                                                                $sh_c "$config_manager $enable_channel_flag $rhel_repo"
+                                                        done
+                                                        ;;
+                                        esac
                                 fi
 			        if [ "$lsb_dist" = "oraclelinux" ]; then
-                                        for ol_repo in $ol_repos ; do
-                                                $sh_c "$config_manager $enable_channel_flag $ol_repo"
-                                        done
+                                        case $dist_version in
+                                                7*)
+                                                        for ol_repo in $ol_repos ; do
+                                                                $sh_c "$config_manager $enable_channel_flag $ol_repo"
+                                                        done
+                                                        ;;
+                                        esac
                                 fi
 
-				$sh_c "$pkg_manager install -y -q $pre_reqs"
 				$sh_c "$config_manager --add-repo $yum_repo"
 				if [ "$CHANNEL" != "stable" ]; then
 					echo "Info: Enabling channel '$CHANNEL' for docker-ce repo"
 					$sh_c "$config_manager $enable_channel_flag docker-ce-$CHANNEL"
 				fi
 				adjust_repo_releasever "$dist_version"
-				$sh_c "$pkg_manager makecache fast"
+				case $dist_version in
+					7*)
+						$sh_c "$pkg_manager makecache fast"
+						;;
+					8*)
+						$sh_c "$pkg_manager makecache"
+						;;
+				esac
 				$sh_c "$pkg_manager install -y -q docker-ce-${docker_version} docker-ce-cli-${docker_version}"
 				if [ -d '/run/systemd/system' ]; then
 					$sh_c 'service docker start'
