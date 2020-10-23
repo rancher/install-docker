@@ -146,6 +146,28 @@ deprecation_notice() {
 	sleep 10;
 }
 
+adjust_repo_releasever() {
+	DOWNLOAD_URL="https://download.docker.com"
+	case $1 in
+	7*)
+		releasever=7
+		;;
+	8*)
+		releasever=8
+		;;
+	*)
+		# fedora, or unsupported
+		return
+		;;
+	esac
+
+	for channel in "stable" "test" "nightly"; do
+		$sh_c "$config_manager --setopt=docker-ce-${channel}.baseurl=${DOWNLOAD_URL}/linux/centos/${releasever}/\\\$basearch/${channel} --save";
+		$sh_c "$config_manager --setopt=docker-ce-${channel}-debuginfo.baseurl=${DOWNLOAD_URL}/linux/centos/${releasever}/debug-\\\$basearch/${channel} --save";
+		$sh_c "$config_manager --setopt=docker-ce-${channel}-source.baseurl=${DOWNLOAD_URL}/linux/centos/${releasever}/source/${channel} --save";
+	done
+}
+
 do_install() {
 
 	architecture=$(uname -m)
@@ -408,6 +430,7 @@ do_install() {
 					echo "Info: Enabling channel '$CHANNEL' for docker-ce repo"
 					$sh_c "$config_manager $enable_channel_flag docker-ce-$CHANNEL"
 				fi
+				adjust_repo_releasever "$dist_version"
 				$sh_c "$pkg_manager makecache fast"
 				$sh_c "$pkg_manager install -y -q docker-ce-${docker_version}.ce"
 				if [ -d '/run/systemd/system' ]; then
