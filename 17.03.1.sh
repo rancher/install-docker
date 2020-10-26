@@ -431,6 +431,10 @@ do_install() {
 				adjust_repo_releasever "$dist_version"
 				$sh_c "$pkg_manager makecache fast"
 				$sh_c "$pkg_manager install -y -q --setopt=obsoletes=0 docker-ce-${docker_version}.ce"
+				# docker-ce-selinux is broken and has a dependency on docker-ce, so we remove it (to avoid conflict) but exclude the dependency
+				$sh_c "$pkg_manager remove -y -q docker-ce-selinux --exclude=docker-ce"
+				# so we can install container-selinux but not upgrade docker-ce/install docker-ce-selinux again
+				$sh_c "$pkg_manager install -y -q --exclude=docker-ce-selinux,docker-ce install container-selinux"
 				if [ -d '/run/systemd/system' ]; then
 					$sh_c 'service docker start'
 				else
