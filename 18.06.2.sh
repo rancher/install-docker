@@ -16,6 +16,7 @@ keyserver.ubuntu.com
 
 rhel_repos="
 rhel-7-server-extras-rpms
+rhel-7-server-rhui-extras-rpms
 rhui-REGION-rhel-server-extras
 rhui-rhel-7-server-rhui-extras-rpms
 rhui-rhel-7-for-arm-64-extras-rhui-rpms
