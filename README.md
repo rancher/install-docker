@@ -19,7 +19,7 @@ Hosted at https://releases.rancher.com/install-docker/x.y[.z].sh, e.g.:
   - https://releases.rancher.com/install-docker/18.06.sh
   - https://releases.rancher.com/install-docker/18.09.sh
   - https://releases.rancher.com/install-docker/19.03.sh
-  - https://releases.rancher.com/install-docker/20.20.sh
+  - https://releases.rancher.com/install-docker/20.10.sh
 
 ## Add new docker release
 
