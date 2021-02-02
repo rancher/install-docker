@@ -63,7 +63,7 @@ diff -uNr 19.03.15.orig.sh 19.03.15.sh
  			fi
  		;;
  
-+		oracleserver)
++		oracleserver|ol)
 +			# installing centos packages
 +			lsb_dist="centos"
 +			# need to switch lsb_dist to match yum repo URL
