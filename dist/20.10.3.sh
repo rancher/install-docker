@@ -333,7 +333,7 @@ do_install() {
 			fi
 		;;
 
-		oracleserver)
+		oracleserver|ol)
 			# installing centos packages
 			lsb_dist="centos"
 			# need to switch lsb_dist to match yum repo URL
