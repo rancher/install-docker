@@ -1,0 +1,104 @@
+---
+kind: pipeline
+name: amd64
+
+platform:
+  os: linux
+  arch: amd64
+
+steps:
+  - name: validate
+    image: rancher/dapper:v0.5.1
+    commands:
+    - 'find . -name \*.sh -exec sh -n {} \;'
+    volumes:
+    - name: docker
+      path: /var/run/docker.sock
+    when:
+      branch:
+      - master
+      event:
+      - push
+      - pull_request
+      - tag
+
+  - name: copy-dist
+    image: rancher/dapper:v0.5.1
+    commands:
+    - 'cp -P *.sh dist/'
+    volumes:
+    - name: docker
+      path: /var/run/docker.sock
+    when:
+      branch:
+      - master
+      event:
+      - push
+      - tag
+
+  - name: add-commit-to-version-file
+    image: rancher/dapper:v0.5.1
+    commands:
+    - "echo ${DRONE_COMMIT} > dist/VERSION"
+    volumes:
+    - name: docker
+      path: /var/run/docker.sock
+    when:
+      branch:
+      - master
+      event:
+      - push
+
+  - name: upload
+    pull: default
+    image: plugins/gcs
+    settings:
+      acl:
+      - allUsers:READER
+      cache_control: "public,no-cache,proxy-revalidate"
+      source: dist/
+      ignore: ".gitkeep"
+      target: releases.rancher.com/install-docker-dev
+      token:
+        from_secret: google_auth_key
+    when:
+      branch:
+      - master
+      event:
+      - push
+
+  - name: add-tag-to-version-file
+    image: rancher/dapper:v0.5.1
+    commands:
+    - "echo ${DRONE_TAG} > dist/VERSION"
+    volumes:
+    - name: docker
+      path: /var/run/docker.sock
+    when:
+      branch:
+      - master
+      event:
+      - tag
+
+  - name: upload
+    pull: default
+    image: plugins/gcs
+    settings:
+      acl:
+      - allUsers:READER
+      cache_control: "public,no-cache,proxy-revalidate"
+      source: dist/
+      ignore: ".gitkeep"
+      target: releases.rancher.com/install-docker
+      token:
+        from_secret: google_auth_key
+    when:
+      branch:
+      - master
+      event:
+      - tag
+
+volumes:
+- name: docker
+  host:
+    path: /var/run/docker.sock
