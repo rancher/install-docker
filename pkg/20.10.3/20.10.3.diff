@@ -1,11 +1,32 @@
 diff -uNr 20.10.3.orig.sh 20.10.3.sh
---- 20.10.3.orig.sh	2021-01-28 23:47:45.000000000 +0100
-+++ 20.10.3.sh	2021-01-28 23:53:21.000000000 +0100
-@@ -21,26 +21,11 @@
+--- 20.10.3.orig.sh	2021-02-04 16:38:45.000000000 +0100
++++ 20.10.3.sh	2021-02-04 16:42:27.000000000 +0100
+@@ -21,26 +21,34 @@
  # the script was uploaded (Should only be modified by upload job):
  SCRIPT_COMMIT_SHA="3d8fe77c2c46c5b7571f94b42793905e5b3e42e4"
  
--
++CHANNEL="stable"
++DOWNLOAD_URL="https://download.docker.com"
++REPO_FILE="docker-ce.repo"
++VERSION=20.10.3
++DIND_TEST_WAIT=${DIND_TEST_WAIT:-3s}  # Wait time until docker start at dind test env
++
++# Issue https://github.com/rancher/rancher/issues/29246
++adjust_repo_releasever() {
++	DOWNLOAD_URL="https://download.docker.com"
++	case $1 in
++	7*)
++		releasever=7
++		;;
++	8*)
++		releasever=8
++		;;
++	*)
++		# fedora, or unsupported
++		return
++		;;
++	esac
+ 
 -# The channel to install from:
 -#   * nightly
 -#   * test
@@ -25,15 +46,16 @@ diff -uNr 20.10.3.orig.sh 20.10.3.sh
 -if [ -z "$REPO_FILE" ]; then
 -	REPO_FILE="$DEFAULT_REPO_FILE"
 -fi
-+CHANNEL="stable"
-+DOWNLOAD_URL="https://download.docker.com"
-+REPO_FILE="docker-ce.repo"
-+VERSION=20.10.3
-+DIND_TEST_WAIT=${DIND_TEST_WAIT:-3s}  # Wait time until docker start at dind test env
++	for channel in "stable" "test" "nightly"; do
++		$sh_c "$config_manager --setopt=docker-ce-${channel}.baseurl=${DOWNLOAD_URL}/linux/centos/${releasever}/\\\$basearch/${channel} --save";
++		$sh_c "$config_manager --setopt=docker-ce-${channel}-debuginfo.baseurl=${DOWNLOAD_URL}/linux/centos/${releasever}/debug-\\\$basearch/${channel} --save";
++		$sh_c "$config_manager --setopt=docker-ce-${channel}-source.baseurl=${DOWNLOAD_URL}/linux/centos/${releasever}/source/${channel} --save";
++	done
++}
  
  mirror=''
  DRY_RUN=${DRY_RUN:-}
-@@ -69,6 +54,18 @@
+@@ -69,6 +77,18 @@
  		;;
  esac
  
@@ -52,20 +74,12 @@ diff -uNr 20.10.3.orig.sh 20.10.3.sh
  command_exists() {
  	command -v "$@" > /dev/null 2>&1
  }
-@@ -329,11 +326,20 @@
- 		;;
- 
- 		centos|rhel)
-+			# installing centos packages
-+			lsb_dist="centos"
- 			if [ -z "$dist_version" ] && [ -r /etc/os-release ]; then
- 				dist_version="$(. /etc/os-release && echo "$VERSION_ID")"
+@@ -334,6 +354,12 @@
  			fi
  		;;
  
 +		oracleserver|ol)
-+			# installing centos packages
-+			lsb_dist="centos"
++			lsb_dist="ol"
 +			# need to switch lsb_dist to match yum repo URL
 +			dist_version="$(rpm -q --whatprovides redhat-release --queryformat "%{VERSION}\n" | sed 's/\/.*//' | sed 's/\..*//' | sed 's/Server*//')"
 +		;;
@@ -73,7 +87,7 @@ diff -uNr 20.10.3.orig.sh 20.10.3.sh
  		*)
  			if command_exists lsb_release; then
  				dist_version="$(lsb_release --release | cut -f2)"
-@@ -404,6 +410,7 @@
+@@ -404,12 +430,14 @@
  					$sh_c "apt-get install -y -qq --no-install-recommends docker-ce-cli=$cli_pkg_version >/dev/null"
  				fi
  				$sh_c "apt-get install -y -qq --no-install-recommends docker-ce$pkg_version >/dev/null"
@@ -81,7 +95,30 @@ diff -uNr 20.10.3.orig.sh 20.10.3.sh
  			)
  			echo_docker_as_nonroot
  			exit 0
-@@ -474,10 +481,25 @@
+ 			;;
+-		centos|fedora|rhel)
+-			yum_repo="$DOWNLOAD_URL/linux/$lsb_dist/$REPO_FILE"
++		centos|fedora|rhel|ol)
++			# installing centos packages
++			yum_repo="$DOWNLOAD_URL/linux/centos/$REPO_FILE"
+ 			if ! curl -Ifs "$yum_repo" > /dev/null; then
+ 				echo "Error: Unable to curl repository file $yum_repo, is it valid?"
+ 				exit 1
+@@ -440,6 +468,13 @@
+ 					$sh_c "$config_manager $disable_channel_flag docker-ce-*"
+ 					$sh_c "$config_manager $enable_channel_flag docker-ce-$CHANNEL"
+ 				fi
++				if [ "$lsb_dist" = "rhel" ] || [ "$lsb_dist" = "ol" ]; then
++					# Add extra repo for version 7.x
++					if [[ "$dist_version" =~ "7." ]]; then
++						$sh_c "$config_manager $enable_channel_flag rhui-rhel-7-server-rhui-extras-rpms"
++					fi
++					adjust_repo_releasever "$dist_version"
++				fi
+ 				$sh_c "$pkg_manager makecache"
+ 			)
+ 			pkg_version=""
+@@ -474,10 +509,25 @@
  					$sh_c "$pkg_manager install -y -q docker-ce-cli-$cli_pkg_version"
  				fi
  				$sh_c "$pkg_manager install -y -q docker-ce$pkg_version"
