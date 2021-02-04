@@ -27,6 +27,29 @@ REPO_FILE="docker-ce.repo"
 VERSION=20.10.2
 DIND_TEST_WAIT=${DIND_TEST_WAIT:-3s}  # Wait time until docker start at dind test env
 
+# Issue https://github.com/rancher/rancher/issues/29246
+adjust_repo_releasever() {
+	DOWNLOAD_URL="https://download.docker.com"
+	case $1 in
+	7*)
+		releasever=7
+		;;
+	8*)
+		releasever=8
+		;;
+	*)
+		# fedora, or unsupported
+		return
+		;;
+	esac
+
+	for channel in "stable" "test" "nightly"; do
+		$sh_c "$config_manager --setopt=docker-ce-${channel}.baseurl=${DOWNLOAD_URL}/linux/centos/${releasever}/\\\$basearch/${channel} --save";
+		$sh_c "$config_manager --setopt=docker-ce-${channel}-debuginfo.baseurl=${DOWNLOAD_URL}/linux/centos/${releasever}/debug-\\\$basearch/${channel} --save";
+		$sh_c "$config_manager --setopt=docker-ce-${channel}-source.baseurl=${DOWNLOAD_URL}/linux/centos/${releasever}/source/${channel} --save";
+	done
+}
+
 mirror=''
 DRY_RUN=${DRY_RUN:-}
 while [ $# -gt 0 ]; do
@@ -326,16 +349,13 @@ do_install() {
 		;;
 
 		centos|rhel)
-			# installing centos packages
-			lsb_dist="centos"
 			if [ -z "$dist_version" ] && [ -r /etc/os-release ]; then
 				dist_version="$(. /etc/os-release && echo "$VERSION_ID")"
 			fi
 		;;
 
 		oracleserver|ol)
-			# installing centos packages
-			lsb_dist="centos"
+			lsb_dist="ol"
 			# need to switch lsb_dist to match yum repo URL
 			dist_version="$(rpm -q --whatprovides redhat-release --queryformat "%{VERSION}\n" | sed 's/\/.*//' | sed 's/\..*//' | sed 's/Server*//')"
 		;;
@@ -415,8 +435,9 @@ do_install() {
 			echo_docker_as_nonroot
 			exit 0
 			;;
-		centos|fedora|rhel)
-			yum_repo="$DOWNLOAD_URL/linux/$lsb_dist/$REPO_FILE"
+		centos|fedora|rhel|ol)
+			# installing centos packages
+			yum_repo="$DOWNLOAD_URL/linux/centos/$REPO_FILE"
 			if ! curl -Ifs "$yum_repo" > /dev/null; then
 				echo "Error: Unable to curl repository file $yum_repo, is it valid?"
 				exit 1
@@ -446,6 +467,13 @@ do_install() {
 				if [ "$CHANNEL" != "stable" ]; then
 					$sh_c "$config_manager $disable_channel_flag docker-ce-*"
 					$sh_c "$config_manager $enable_channel_flag docker-ce-$CHANNEL"
+				fi
+				if [ "$lsb_dist" = "rhel" ] || [ "$lsb_dist" = "ol" ]; then
+					# Add extra repo for version 7.x
+					if [[ "$dist_version" =~ "7." ]]; then
+						$sh_c "$config_manager $enable_channel_flag rhui-rhel-7-server-rhui-extras-rpms"
+					fi
+					adjust_repo_releasever "$dist_version"
 				fi
 				$sh_c "$pkg_manager makecache"
 			)
