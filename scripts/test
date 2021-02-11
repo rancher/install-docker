@@ -7,7 +7,7 @@ echo "==> Testing install-docker scripts..."
 # https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
 SEMVER_REGEX='^(\d*)\.(\d*)\.(\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$'
 
-cd pkg
+cd $(dirname $0)/../pkg
 for DOCKER_VERSION in $(ls -1d */ | cut -d/ -f1 | grep -E $SEMVER_REGEX ); do
 	if [ -f ../dist/$DOCKER_VERSION.sh ] ; then
 		if [ -f $DOCKER_VERSION/config.sh ]; then
