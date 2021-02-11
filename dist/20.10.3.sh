@@ -469,11 +469,19 @@ do_install() {
 					$sh_c "$config_manager $enable_channel_flag docker-ce-$CHANNEL"
 				fi
 				if [ "$lsb_dist" = "rhel" ] || [ "$lsb_dist" = "ol" ]; then
-					# Add extra repo for version 7.x
-					if [[ "$dist_version" =~ "7." ]]; then
-						$sh_c "$config_manager $enable_channel_flag rhui-rhel-7-server-rhui-extras-rpms"
-					fi
 					adjust_repo_releasever "$dist_version"
+					# Add extra repo for version 7.x
+					if [[ "$dist_version" =~ "7." ]] || [ "$dist_version" == "7" ] ; then
+						if [ "$lsb_dist" = "rhel" ]; then
+							$sh_c "$config_manager $enable_channel_flag rhui-rhel-7-server-rhui-extras-rpms"
+						else
+							$sh_c "$config_manager $enable_channel_flag ol7_addons"
+							# Adding OL7 developer repo if doesn't exist
+							if [ "$(yum repolist | grep yum.oracle.com_repo_OracleLinux_OL7_developer > /dev/null || echo add)" == "add" ]; then
+								$sh_c "$config_manager --add-repo https://yum.oracle.com/repo/OracleLinux/OL7/developer/x86_64"
+							fi
+						fi
+					fi
 				fi
 				$sh_c "$pkg_manager makecache"
 			)
