@@ -7,31 +7,37 @@ echo "==> Testing install-docker scripts..."
 # https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
 SEMVER_REGEX='^(\d*)\.(\d*)\.(\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$'
 
-cd pkg
+cd $(dirname $0)/../pkg
 for DOCKER_VERSION in $(ls -1d */ | cut -d/ -f1 | grep -E $SEMVER_REGEX ); do
 	if [ -f ../dist/$DOCKER_VERSION.sh ] ; then
 		if [ -f $DOCKER_VERSION/config.sh ]; then
 			source $DOCKER_VERSION/config.sh
 		fi
 		if [ -z "${TEST_OS_IMAGE_NAME}" ]; then
-			TEST_OS_IMAGE_NAME=(ubuntu centos debian)
+			TEST_OS_IMAGE_NAME=(ubuntu centos debian oraclelinux)
 		fi
 		if [ -z "${TEST_OS_IMAGE_TAG}" ]; then
 			TEST_OS_IMAGE_TAG[0]="16.04 18.04 20.04"
 			TEST_OS_IMAGE_TAG[1]="centos7 centos8"
 			TEST_OS_IMAGE_TAG[2]="10"
+			TEST_OS_IMAGE_TAG[3]="7 8"
 		fi
 		for (( index=0; index<${#TEST_OS_IMAGE_NAME[@]}; index++ )); do
 			IMAGE=${TEST_OS_IMAGE_NAME[$index]}
-		    for TAG in ${TEST_OS_IMAGE_TAG[$index]}; do
-		    	echo "==> Testing $DOCKER_VERSION.sh at ${IMAGE}:${TAG}..."
-		        docker run --rm -i --privileged \
+			for TAG in ${TEST_OS_IMAGE_TAG[$index]}; do
+				echo "==> Testing $DOCKER_VERSION.sh at ${IMAGE}:${TAG}..."
+				COMMAND="sh /install.sh"
+				# Patch for oracle linux 8 docker image as yum is not installed
+				if [ "$IMAGE" == "oraclelinux" ] && [ "$TAG" == "8" ]; then
+					COMMAND="dnf install -y yum && sh /install.sh"
+				fi
+				docker run --rm -it --privileged \
 					-v $PWD/../dist/$DOCKER_VERSION.sh:/install.sh \
 					-e DIND_TEST=true \
 					${IMAGE}:${TAG} \
-					sh /install.sh
+					sh -c "${COMMAND}"
 				echo "[OK] $DOCKER_VERSION.sh at ${IMAGE}:${TAG}"
-		    done
+			done
 		done
 		unset TEST_OS_DISTRO_IMAGE TEST_OS_IMAGE_TAG
 	fi
