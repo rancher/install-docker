@@ -1,6 +1,6 @@
 diff -uNr 20.10.2.orig.sh 20.10.2.sh
---- 20.10.2.orig.sh	2021-02-11 18:47:20.000000000 +0100
-+++ 20.10.2.sh	2021-02-11 18:40:40.000000000 +0100
+--- 20.10.2.orig.sh	2021-03-22 23:44:28.000000000 +0100
++++ 20.10.2.sh	2021-03-22 23:51:17.000000000 +0100
 @@ -21,26 +21,34 @@
  # the script was uploaded (Should only be modified by upload job):
  SCRIPT_COMMIT_SHA="3d8fe77c2c46c5b7571f94b42793905e5b3e42e4"
@@ -104,7 +104,7 @@ diff -uNr 20.10.2.orig.sh 20.10.2.sh
  			if ! curl -Ifs "$yum_repo" > /dev/null; then
  				echo "Error: Unable to curl repository file $yum_repo, is it valid?"
  				exit 1
-@@ -440,6 +468,21 @@
+@@ -440,6 +468,25 @@
  					$sh_c "$config_manager $disable_channel_flag docker-ce-*"
  					$sh_c "$config_manager $enable_channel_flag docker-ce-$CHANNEL"
  				fi
@@ -113,7 +113,11 @@ diff -uNr 20.10.2.orig.sh 20.10.2.sh
 +					# Add extra repo for version 7.x
 +					if [[ "$dist_version" =~ "7." ]] || [ "$dist_version" == "7" ] ; then
 +						if [ "$lsb_dist" = "rhel" ]; then
++							$sh_c "$config_manager $enable_channel_flag rhui-REGION-rhel-server-extras"
 +							$sh_c "$config_manager $enable_channel_flag rhui-rhel-7-server-rhui-extras-rpms"
++							$sh_c "$config_manager $enable_channel_flag rhui-rhel-7-for-arm-64-extras-rhui-rpms"
++							$sh_c "$config_manager $enable_channel_flag rhel-7-server-rhui-extras-rpms"
++							$sh_c "$config_manager $enable_channel_flag rhel-7-server-extras-rpms"
 +						else
 +							$sh_c "$config_manager $enable_channel_flag ol7_addons"
 +							# Adding OL7 developer repo if doesn't exist
@@ -126,7 +130,7 @@ diff -uNr 20.10.2.orig.sh 20.10.2.sh
  				$sh_c "$pkg_manager makecache"
  			)
  			pkg_version=""
-@@ -474,10 +517,25 @@
+@@ -474,10 +521,25 @@
  					$sh_c "$pkg_manager install -y -q docker-ce-cli-$cli_pkg_version"
  				fi
  				$sh_c "$pkg_manager install -y -q docker-ce$pkg_version"

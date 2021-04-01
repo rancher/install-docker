@@ -473,7 +473,11 @@ do_install() {
 					# Add extra repo for version 7.x
 					if [[ "$dist_version" =~ "7." ]] || [ "$dist_version" == "7" ] ; then
 						if [ "$lsb_dist" = "rhel" ]; then
+							$sh_c "$config_manager $enable_channel_flag rhui-REGION-rhel-server-extras"
 							$sh_c "$config_manager $enable_channel_flag rhui-rhel-7-server-rhui-extras-rpms"
+							$sh_c "$config_manager $enable_channel_flag rhui-rhel-7-for-arm-64-extras-rhui-rpms"
+							$sh_c "$config_manager $enable_channel_flag rhel-7-server-rhui-extras-rpms"
+							$sh_c "$config_manager $enable_channel_flag rhel-7-server-extras-rpms"
 						else
 							$sh_c "$config_manager $enable_channel_flag ol7_addons"
 							# Adding OL7 developer repo if doesn't exist
