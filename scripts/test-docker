@@ -1,0 +1,74 @@
+#!/bin/bash
+declare -A test_results
+
+cd $(dirname $0)
+
+DOCKER_TLS_CERTDIR=""
+dockerd -H unix:///tmp/install-docker.sock &>/dev/null &
+
+export DOCKER_HOST="unix:///tmp/install-docker.sock"
+
+
+echo "==> Waiting for Docker daemon to be started"
+while true; do
+  docker version &>/dev/null && break
+  sleep 5
+done
+
+echo "==> Testing install-docker scripts..."
+
+for DOCKER_VERSION in $(ls -1 ../pkg/); do
+        echo "Testing $DOCKER_VERSION"
+	if [ -f ../dist/$DOCKER_VERSION.sh ] ; then
+		if [ -f $DOCKER_VERSION/config.sh ]; then
+			source $DOCKER_VERSION/config.sh
+		fi
+		if [ -z "${TEST_OS_IMAGE_NAME}" ]; then
+                    TEST_OS_IMAGE_NAME=(ubuntu centos debian oraclelinux)
+		fi
+		if [ -z "${TEST_OS_IMAGE_TAG}" ]; then
+			TEST_OS_IMAGE_TAG[0]="16.04 18.04 20.04"
+			TEST_OS_IMAGE_TAG[1]="centos7 centos8"
+			TEST_OS_IMAGE_TAG[2]="10"
+			TEST_OS_IMAGE_TAG[3]="7 8"
+		fi
+		for (( index=0; index<${#TEST_OS_IMAGE_NAME[@]}; index++ )); do
+			IMAGE=${TEST_OS_IMAGE_NAME[$index]}
+			for TAG in ${TEST_OS_IMAGE_TAG[$index]}; do
+				echo "==> Testing $DOCKER_VERSION.sh at ${IMAGE}:${TAG}..."
+				COMMAND="bash /install.sh"
+				# Patch for oracle linux 8 docker image as yum is not installed
+				if [ "$IMAGE" == "oraclelinux" ] && [ "$TAG" == "8" ]; then
+					COMMAND="dnf install -y yum && bash /install.sh"
+				fi
+				docker run --rm --privileged \
+					-v /install-docker/dist/$DOCKER_VERSION.sh:/install.sh \
+					-e DIND_TEST=true \
+					-e DOCKER_HOST=$DOCKER_HOST \
+					${IMAGE}:${TAG} \
+					sh -c "${COMMAND}"
+				RETVAL=$?
+				echo "${IMAGE}:${TAG}-${DOCKER_VERSION} exit code $RETVAL"
+				test_results["${IMAGE}:${TAG}-${DOCKER_VERSION}"]="$RETVAL"
+			done
+		done
+		unset TEST_OS_DISTRO_IMAGE TEST_OS_IMAGE_TAG
+	fi
+done
+
+FAIL="false"
+echo ""
+echo "---- TEST RESULTS ----"
+for result in "${!test_results[@]}"; do
+	if [ "${test_results["${result}"]}" -eq 0 ]; then
+		echo "[PASS] ${result} exit code: ${test_results[$result]}"
+	else
+		echo "[FAIL] ${result} exit code: ${test_results[${result}]}"
+		FAIL="true"
+	fi
+done
+
+if [[ "${FAIL}" == "true" ]]; then
+  echo "[FAIL] At least one test failed, see results above"
+  exit 1
+fi

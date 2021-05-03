@@ -1,0 +1,37 @@
+#!/bin/bash
+set -e
+
+cd $(dirname $0)
+
+# Thanks to https://gist.github.com/rverst/1f0b97da3cbeb7d93f4986df6e8e5695
+function chsv_check_version() {
+  if [[ $1 =~ ^(0|[1-9][0-9]*)\.(0|[0-9][0-9]*)\.(0|[0-9][0-9]*)(-((0|[0-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(\.(0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?(\+([0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*))?$ ]]; then
+    echo "$1"
+  else
+    echo ""
+  fi
+}
+
+echo "Checking if pkg directory contains only semver compatible version"
+
+for DOCKER_VERSION in $(ls -1 ../pkg/); do
+    SEMVER=$(chsv_check_version $DOCKER_VERSION)
+    if [ -z $SEMVER ]; then
+        echo "[ERR] Version found in pkg directory is not semver (${DOCKER_VERSION})"
+        exit 1
+    fi
+done
+
+echo "Checking if dist directory contains only semver compatible version"
+
+for DOCKER_VERSION in $(find ../dist/ -mindepth 1 -type f -exec basename {} \; | sed 's/\.sh//'); do
+    SEMVER=$(chsv_check_version $DOCKER_VERSION)
+    if [ -z $SEMVER ]; then
+        echo "[ERR] Version found in dist directory is not semver (${DOCKER_VERSION})"
+        exit 1
+    fi
+done
+
+
+echo "Checking basic shell validation"
+find ../dist -name \*.sh -exec sh -n {} \;

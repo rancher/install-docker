@@ -1,8 +1,16 @@
 TARGETS := $(shell ls scripts)
 
-$(TARGETS):
-	@sh -c "'$(CURDIR)/scripts/$@'"
+.dapper:
+	@echo Downloading dapper
+	@curl -sL https://releases.rancher.com/dapper/latest/dapper-`uname -s`-`uname -m` > .dapper.tmp
+	@@chmod +x .dapper.tmp
+	@./.dapper.tmp -v
+	@mv .dapper.tmp .dapper
 
-.DEFAULT_GOAL := generate
+$(TARGETS): .dapper
+	./.dapper $@
+
+.DEFAULT_GOAL := ci
 
 .PHONY: $(TARGETS)
+

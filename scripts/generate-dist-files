@@ -1,0 +1,49 @@
+#!/bin/bash
+set -e
+
+cd $(dirname $0)
+
+echo "==> Generating install-docker scripts..."
+
+DOCKER_GIT_COMMIT_LAST=$(curl -Lsk http://get.docker.com/ | grep "^SCRIPT_COMMIT_SHA=" | cut -d= -f2 | tr -d '"')
+
+for DOCKER_VERSION in $(ls -1 ../pkg/); do
+	if [ -f $DOCKER_VERSION/$DOCKER_VERSION.diff ] ; then
+		echo "==> Checking pkg/$DOCKER_VERSION ..."
+		if [ -f $DOCKER_VERSION/config.sh ]; then
+			source $DOCKER_VERSION/config.sh
+		fi
+		DOCKER_GIT_REPO=${DOCKER_GIT_REPO:-"https://github.com/docker/docker-install"}
+		if [ -z "${DOCKER_GIT_COMMIT}" ]; then
+			echo "==> [ERROR] DOCKER_GIT_COMMIT var should be defined at pkg/$DOCKER_VERSION/config.sh"
+			exit 1
+		fi
+		if [ ! -z "$DOCKER_GIT_COMMIT_LAST" ]; then
+			if [ $DOCKER_GIT_COMMIT != $DOCKER_GIT_COMMIT_LAST ]; then 
+				echo "==> [INFO] dist/$DOCKER_VERSION_SHORT/$DOCKER_VERSION.sh is generated from DOCKER_GIT_COMMIT [$DOCKER_GIT_COMMIT], latest released commit is [$DOCKER_GIT_COMMIT_LAST]"
+			fi
+		fi
+		if [ ! -f ../dist/$DOCKER_VERSION.sh ]; then
+			echo "==> Generating dist/$DOCKER_VERSION.sh..."
+			cd $DOCKER_VERSION
+			if [ -d docker-install ]; then 
+				rm -rf docker-install
+			fi
+			git clone ${DOCKER_GIT_REPO}
+			cd docker-install
+			git checkout ${DOCKER_GIT_COMMIT}
+			make
+			cp build/install.sh ../$DOCKER_VERSION.sh
+			cd .. && rm -rf docker-install
+			patch $DOCKER_VERSION.sh $DOCKER_VERSION.diff
+			cd ..
+			mv $DOCKER_VERSION/$DOCKER_VERSION.sh ../dist/
+			echo "[OK] Generated dist/$DOCKER_VERSION.sh"
+			DOCKER_VERSION_SHORT=$(echo $DOCKER_VERSION| cut -d. -f1,2)
+			echo "     Update dist/$DOCKER_VERSION_SHORT.sh link if required: rm $DOCKER_VERSION_SHORT.sh && ln -s $DOCKER_VERSION.sh $DOCKER_VERSION_SHORT.sh"
+		else
+			echo "[OK] Skipped dist/$DOCKER_VERSION.sh already generated..."
+		fi
+		unset DOCKER_GIT_REPO DOCKER_GIT_COMMIT
+	fi
+done
