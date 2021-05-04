@@ -24,13 +24,13 @@ for DOCKER_VERSION in $(ls -1 ../pkg/); do
 			source $DOCKER_VERSION/config.sh
 		fi
 		if [ -z "${TEST_OS_IMAGE_NAME}" ]; then
-                    TEST_OS_IMAGE_NAME=(ubuntu centos debian oraclelinux)
+                    TEST_OS_IMAGE_NAME=(oraclelinux centos debian ubuntu)
 		fi
 		if [ -z "${TEST_OS_IMAGE_TAG}" ]; then
-			TEST_OS_IMAGE_TAG[0]="16.04 18.04 20.04"
+			TEST_OS_IMAGE_TAG[0]="7 8"
 			TEST_OS_IMAGE_TAG[1]="centos7 centos8"
 			TEST_OS_IMAGE_TAG[2]="10"
-			TEST_OS_IMAGE_TAG[3]="7 8"
+			TEST_OS_IMAGE_TAG[3]="16.04 18.04 20.04"
 		fi
 		for (( index=0; index<${#TEST_OS_IMAGE_NAME[@]}; index++ )); do
 			IMAGE=${TEST_OS_IMAGE_NAME[$index]}
@@ -41,16 +41,46 @@ for DOCKER_VERSION in $(ls -1 ../pkg/); do
 				if [ "$IMAGE" == "oraclelinux" ] && [ "$TAG" == "8" ]; then
 					COMMAND="dnf install -y yum && bash /install.sh"
 				fi
-				docker run --rm --privileged \
+				docker run -d --privileged \
+                                        --label install-docker="true" \
+                                        --label install-docker-image="${IMAGE}" \
+                                        --label install-docker-tag="${TAG}" \
+                                        --label install-docker-version="${DOCKER_VERSION}" \
 					-v /install-docker/dist/$DOCKER_VERSION.sh:/install.sh \
+					-v /pkgcache-yum/${IMAGE}-${TAG}/:/var/cache/yum \
+					-v /pkgcache-dnf/${IMAGE}-${TAG}/:/var/cache/dnf \
+					-v /pkgcache-apt/${IMAGE}-${TAG}/:/var/cache/apt \
 					-e DIND_TEST=true \
 					-e DOCKER_HOST=$DOCKER_HOST \
 					${IMAGE}:${TAG} \
 					sh -c "${COMMAND}"
-				RETVAL=$?
-				echo "${IMAGE}:${TAG}-${DOCKER_VERSION} exit code $RETVAL"
-				test_results["${IMAGE}:${TAG}-${DOCKER_VERSION}"]="$RETVAL"
 			done
+		done
+		echo "==> Waiting for all tests for Docker version ${DOCKER_VERSION} are complete"
+		while true; do
+			RUNNINGCONTAINERS=$(docker ps -q --filter "label=install-docker")
+			if [[ "x${RUNNINGCONTAINERS}" == "x" ]]; then
+				break
+			fi
+			echo "==> Still running for ${DOCKER_VERSION}: $(echo "${RUNNINGCONTAINERS}")"
+			echo "==> Sleeping 15 seconds to check tests for Docker version ${DOCKER_VERSION}"
+			sleep 15
+		done
+		# Gathering all containers to save exit code
+		ALLEXITEDCONTAINERS=$(docker ps -qa --filter "label=install-docker-version=${DOCKER_VERSION}")
+		for CONTAINER in $ALLEXITEDCONTAINERS; do
+			EXITCODE=$(docker inspect $CONTAINER --format='{{.State.ExitCode}}')
+			IMAGE=$(docker inspect $CONTAINER --format='{{ index .Config.Labels "install-docker-image" }}')
+			TAG=$(docker inspect $CONTAINER --format='{{ index .Config.Labels "install-docker-tag" }}')
+			DOCKER_VERSION=$(docker inspect $CONTAINER --format='{{ index .Config.Labels "install-docker-version" }}')
+			echo "${IMAGE}:${TAG}-${DOCKER_VERSION} exit code $EXITCODE"
+			if [ $EXITCODE -ne 0 ]; then
+				echo "Showing logs for ${IMAGE}:${TAG}-${DOCKER_VERSION}"
+				docker logs $CONTAINER
+			fi
+			test_results["${IMAGE}:${TAG}-${DOCKER_VERSION}"]="$EXITCODE"
+			echo "==> Cleaning up container ${CONTAINER}"
+			docker rm -f $CONTAINER
 		done
 		unset TEST_OS_DISTRO_IMAGE TEST_OS_IMAGE_TAG
 	fi
