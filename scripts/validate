@@ -12,7 +12,7 @@ function chsv_check_version() {
   fi
 }
 
-echo "Checking if pkg directory contains only semver compatible version"
+echo "==> Checking if pkg directory contains only semver compatible version"
 
 for DOCKER_VERSION in $(ls -1 ../pkg/); do
     SEMVER=$(chsv_check_version $DOCKER_VERSION)
@@ -22,7 +22,7 @@ for DOCKER_VERSION in $(ls -1 ../pkg/); do
     fi
 done
 
-echo "Checking if dist directory contains only semver compatible version"
+echo "==> Checking if dist directory contains only semver compatible version"
 
 for DOCKER_VERSION in $(find ../dist/ -mindepth 1 -type f -exec basename {} \; | sed 's/\.sh//'); do
     SEMVER=$(chsv_check_version $DOCKER_VERSION)
@@ -33,5 +33,5 @@ for DOCKER_VERSION in $(find ../dist/ -mindepth 1 -type f -exec basename {} \; |
 done
 
 
-echo "Checking basic shell validation"
+echo "==> Checking basic shell validation"
 find ../dist -name \*.sh -exec sh -n {} \;
