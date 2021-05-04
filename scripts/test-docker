@@ -3,12 +3,6 @@ declare -A test_results
 
 cd $(dirname $0)
 
-DOCKER_TLS_CERTDIR=""
-dockerd -H unix:///tmp/install-docker.sock &>/dev/null &
-
-export DOCKER_HOST="unix:///tmp/install-docker.sock"
-
-
 echo "==> Waiting for Docker daemon to be started"
 while true; do
   docker version &>/dev/null && break
@@ -51,7 +45,6 @@ for DOCKER_VERSION in $(ls -1 ../pkg/); do
 					-v /pkgcache-dnf/${IMAGE}-${TAG}/:/var/cache/dnf \
 					-v /pkgcache-apt/${IMAGE}-${TAG}/:/var/cache/apt \
 					-e DIND_TEST=true \
-					-e DOCKER_HOST=$DOCKER_HOST \
 					${IMAGE}:${TAG} \
 					sh -c "${COMMAND}"
 			done
