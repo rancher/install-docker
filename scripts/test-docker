@@ -1,5 +1,9 @@
 #!/bin/bash
-declare -A test_results
+declare -A test_docker_versions
+declare -A docker_versions_passed
+declare -A docker_versions_failed
+
+FAIL="false"
 
 cd $(dirname $0)
 
@@ -9,38 +13,54 @@ while true; do
   sleep 5
 done
 
+test_docker_versions["ubuntu:16.04"]="^18.06|^18.09|^19.03|^20.10"
+test_docker_versions["ubuntu:18.04"]="^18.06|^18.09|^19.03|^20.10"
+test_docker_versions["ubuntu:20.04"]="^19.03.9$|^19.03.1[0-9]|^20.10"
+test_docker_versions["centos:centos7"]="^18.06|^18.09|^19.03|^20.10"
+test_docker_versions["centos:centos8"]="^20.10"
+test_docker_versions["oraclelinux:7"]="^19.03|^20.10"
+test_docker_versions["oraclelinux:8"]="^20.10"
+
 echo "==> Testing install-docker scripts..."
 
-for DOCKER_VERSION in $(ls -1 ../pkg/); do
-        echo "Testing $DOCKER_VERSION"
-	if [ -f ../dist/$DOCKER_VERSION.sh ] ; then
+for DOCKER_VERSION_SCRIPT in $(find ../dist/ -mindepth 1 -type f -exec basename {} \; | sort -V); do
+	DOCKER_VERSION=$(echo $DOCKER_VERSION_SCRIPT | sed 's/\.sh//')
+        echo "==> Found $DOCKER_VERSION_SCRIPT"
+	if [ -f ../dist/$DOCKER_VERSION_SCRIPT ] ; then
 		if [ -f $DOCKER_VERSION/config.sh ]; then
 			source $DOCKER_VERSION/config.sh
 		fi
 		if [ -z "${TEST_OS_IMAGE_NAME}" ]; then
-                    TEST_OS_IMAGE_NAME=(oraclelinux centos debian ubuntu)
+                    TEST_OS_IMAGE_NAME=(oraclelinux centos ubuntu)
 		fi
 		if [ -z "${TEST_OS_IMAGE_TAG}" ]; then
 			TEST_OS_IMAGE_TAG[0]="7 8"
 			TEST_OS_IMAGE_TAG[1]="centos7 centos8"
-			TEST_OS_IMAGE_TAG[2]="10"
-			TEST_OS_IMAGE_TAG[3]="16.04 18.04 20.04"
+			TEST_OS_IMAGE_TAG[2]="16.04 18.04 20.04"
 		fi
 		for (( index=0; index<${#TEST_OS_IMAGE_NAME[@]}; index++ )); do
 			IMAGE=${TEST_OS_IMAGE_NAME[$index]}
 			for TAG in ${TEST_OS_IMAGE_TAG[$index]}; do
-				echo "==> Testing $DOCKER_VERSION.sh at ${IMAGE}:${TAG}..."
-				COMMAND="bash /install.sh"
+				DOCKER_REGEX=${test_docker_versions["${IMAGE}:${TAG}"]}
+				if [[ "x${DOCKER_REGEX}" != "x" ]]; then
+					DOCKER_REGEX_RESULT=$(echo $DOCKER_VERSION | grep -E $DOCKER_REGEX)
+					if [[ "x${DOCKER_REGEX_RESULT}" == "x" ]]; then
+						echo "==> Skipping ${DOCKER_VERSION} for ${IMAGE}:${TAG}"
+						continue
+					fi
+				fi
+				echo "==> Testing $DOCKER_VERSION at ${IMAGE}:${TAG}..."
+				COMMAND="echo '' > /usr/bin/systemctl && bash /install.sh"
 				# Patch for oracle linux 8 docker image as yum is not installed
 				if [ "$IMAGE" == "oraclelinux" ] && [ "$TAG" == "8" ]; then
-					COMMAND="dnf install -y yum && bash /install.sh"
+					COMMAND="echo '' > /usr/bin/systemctl && dnf install -y yum && bash /install.sh"
 				fi
 				docker run -d --privileged \
                                         --label install-docker="true" \
                                         --label install-docker-image="${IMAGE}" \
                                         --label install-docker-tag="${TAG}" \
                                         --label install-docker-version="${DOCKER_VERSION}" \
-					-v /install-docker/dist/$DOCKER_VERSION.sh:/install.sh \
+					-v /install-docker/dist/$DOCKER_VERSION_SCRIPT:/install.sh \
 					-v /pkgcache-yum/${IMAGE}-${TAG}/:/var/cache/yum \
 					-v /pkgcache-dnf/${IMAGE}-${TAG}/:/var/cache/dnf \
 					-v /pkgcache-apt/${IMAGE}-${TAG}/:/var/cache/apt \
@@ -67,11 +87,14 @@ for DOCKER_VERSION in $(ls -1 ../pkg/); do
 			TAG=$(docker inspect $CONTAINER --format='{{ index .Config.Labels "install-docker-tag" }}')
 			DOCKER_VERSION=$(docker inspect $CONTAINER --format='{{ index .Config.Labels "install-docker-version" }}')
 			echo "${IMAGE}:${TAG}-${DOCKER_VERSION} exit code $EXITCODE"
-			if [ $EXITCODE -ne 0 ]; then
+			if [ $EXITCODE -eq 0 ]; then
+				docker_versions_passed["${IMAGE}:${TAG}-${DOCKER_VERSION}"]="$EXITCODE"
+			else
+				FAIL="true"
+				docker_versions_failed["${IMAGE}:${TAG}-${DOCKER_VERSION}"]="$EXITCODE"
 				echo "Showing logs for ${IMAGE}:${TAG}-${DOCKER_VERSION}"
-				docker logs $CONTAINER
+				docker logs --tail=10 $CONTAINER
 			fi
-			test_results["${IMAGE}:${TAG}-${DOCKER_VERSION}"]="$EXITCODE"
 			echo "==> Cleaning up container ${CONTAINER}"
 			docker rm -f $CONTAINER
 		done
@@ -79,19 +102,15 @@ for DOCKER_VERSION in $(ls -1 ../pkg/); do
 	fi
 done
 
-FAIL="false"
 echo ""
 echo "---- TEST RESULTS ----"
-for result in "${!test_results[@]}"; do
-	if [ "${test_results["${result}"]}" -eq 0 ]; then
-		echo "[PASS] ${result} exit code: ${test_results[$result]}"
-	else
-		echo "[FAIL] ${result} exit code: ${test_results[${result}]}"
-		FAIL="true"
-	fi
+for result in "${!docker_versions_passed[@]}"; do
+	echo "[PASS] ${result} exit code: ${docker_versions_passed[$result]}"
 done
 
 if [[ "${FAIL}" == "true" ]]; then
-  echo "[FAIL] At least one test failed, see results above"
-  exit 1
+	for result in "${!docker_versions_failed[@]}"; do
+		echo "[FAIL] ${result} exit code: ${docker_versions_failed[${result}]}"
+	done
+	exit 1
 fi
