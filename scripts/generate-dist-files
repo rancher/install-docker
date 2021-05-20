@@ -1,14 +1,16 @@
 #!/bin/bash
-set -e
+set -ex
 
 cd $(dirname $0)
+
+cd ../pkg
 
 echo "==> Generating install-docker scripts..."
 
 DOCKER_GIT_COMMIT_LAST=$(curl -Lsk http://get.docker.com/ | grep "^SCRIPT_COMMIT_SHA=" | cut -d= -f2 | tr -d '"')
 
-for DOCKER_VERSION in $(ls -1 ../pkg/); do
-	if [ -f $DOCKER_VERSION/$DOCKER_VERSION.diff ] ; then
+for DOCKER_VERSION in $(ls -1 .); do
+	if [ -f "${DOCKER_VERSION}/${DOCKER_VERSION}.diff" ] ; then
 		echo "==> Checking pkg/$DOCKER_VERSION ..."
 		if [ -f $DOCKER_VERSION/config.sh ]; then
 			source $DOCKER_VERSION/config.sh

@@ -1,0 +1,22 @@
+#!/bin/bash
+set -ex
+
+mkdir ./pkg/${ADD_DOCKER_VERSION}
+cd ./pkg/${ADD_DOCKER_VERSION}
+curl -Lsk http://get.docker.com/ -o ${ADD_DOCKER_VERSION}.orig.sh
+cp -p ${ADD_DOCKER_VERSION}.orig.sh ${ADD_DOCKER_VERSION}.sh
+
+# apply diff from other version
+patch -p1 ${ADD_DOCKER_VERSION}.sh ../${PREVIOUS_ADD_DOCKER_VERSION}/${PREVIOUS_ADD_DOCKER_VERSION}.diff
+
+# creating new diff
+diff -uNr ${ADD_DOCKER_VERSION}.orig.sh ${ADD_DOCKER_VERSION}.sh > ${ADD_DOCKER_VERSION}.diff || true
+
+# grep SHA commit
+COMMIT_SHA=$(grep SCRIPT_COMMIT_SHA= ${ADD_DOCKER_VERSION}.sh | awk -F'=' '{ print $2 }' | sed 's/"//g')
+
+# remove non diff files
+rm -f ${ADD_DOCKER_VERSION}.sh ${ADD_DOCKER_VERSION}.orig.sh
+
+# Change commit SHA
+cat ../${PREVIOUS_ADD_DOCKER_VERSION}/config.sh | sed '/^DOCKER_GIT_COMMIT=/s/=.*$/="'"${COMMIT_SHA}"'"/' > config.sh
