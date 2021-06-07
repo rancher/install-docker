@@ -29,9 +29,10 @@ Example adding 20.10.7 with diff from 20.10.6:
 ```
 PREVIOUS_ADD_DOCKER_VERSION=20.10.6 ADD_DOCKER_VERSION=20.10.7 make add-new-version
 ```
+- Generate distributed script by running `make generate`
 - Under `dist/` create/update the proper docker install script symlink `<DOCKER_MAJOR>.<DOCKER_MINOR>.sh`, to the generated script. Ex: `ln -s 20.10.7.sh 20.10.sh`
-- Define and execute tests, `make test`
-- Commit changes and submit PR
+- **Optional:** Run OS tests locally using `make test` (currently takes around 45 minutes)
+- Commit changes and submit PR (this will start the tests as well)
 
 ## Test releases
 
