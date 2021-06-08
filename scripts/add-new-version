@@ -9,6 +9,9 @@ cp -p ${ADD_DOCKER_VERSION}.orig.sh ${ADD_DOCKER_VERSION}.sh
 # apply diff from other version
 patch -p1 ${ADD_DOCKER_VERSION}.sh ../${PREVIOUS_ADD_DOCKER_VERSION}/${PREVIOUS_ADD_DOCKER_VERSION}.diff
 
+# replace DOCKER_VERSION
+sed -i '/^VERSION=/s/=.*$/="'"${ADD_DOCKER_VERSION}"'"/' ${ADD_DOCKER_VERSION}.sh
+
 # creating new diff
 diff -uNr ${ADD_DOCKER_VERSION}.orig.sh ${ADD_DOCKER_VERSION}.sh > ${ADD_DOCKER_VERSION}.diff || true
 
