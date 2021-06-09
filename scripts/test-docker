@@ -50,10 +50,10 @@ for DOCKER_VERSION_SCRIPT in $(find ../dist/ -mindepth 1 -type f -exec basename 
 					fi
 				fi
 				echo "==> Testing $DOCKER_VERSION at ${IMAGE}:${TAG}..."
-				COMMAND="echo '' > /usr/bin/systemctl && bash /install.sh"
+				COMMAND="echo '' > /usr/bin/systemctl && bash /install.sh && bash -c 'if [[ \"\$(docker version --format '{{.Client.Version}}') 2>/dev/null\" != ${DOCKER_VERSION}* ]]; then echo \"Found  version (\$(docker version --format '{{.Client.Version}}')) does not match \"${DOCKER_VERSION}\"\"; exit 1; fi'"
 				# Patch for oracle linux 8 docker image as yum is not installed
 				if [ "$IMAGE" == "oraclelinux" ] && [ "$TAG" == "8" ]; then
-					COMMAND="echo '' > /usr/bin/systemctl && dnf install -y yum && bash /install.sh"
+					COMMAND="echo '' > /usr/bin/systemctl && dnf install -y yum && bash /install.sh && bash -c 'if [[ \"\$(docker version --format '{{.Client.Version}}') 2>/dev/null\" != ${DOCKER_VERSION}* ]]; then echo \"Found  version (\$(docker version --format '{{.Client.Version}}')) does not match \"${DOCKER_VERSION}\"\"; exit 1; fi'"
 				fi
 				docker run -d --privileged \
                                         --label install-docker="true" \
