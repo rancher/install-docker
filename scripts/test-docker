@@ -2,6 +2,7 @@
 declare -A test_docker_versions
 declare -A docker_versions_passed
 declare -A docker_versions_failed
+declare -A pre_tasks
 
 FAIL="false"
 
@@ -21,6 +22,10 @@ test_docker_versions["centos:centos8"]="^19.03.13|^19.03.14|^19.03.15|^20.10"
 test_docker_versions["oraclelinux:7"]="^19.03|^20.10"
 test_docker_versions["oraclelinux:8"]="^20.10"
 
+# some jobs need to be done before the test
+pre_tasks["install_lsb_release"]="if command -v yum &> /dev/null; then yum install -y redhat-lsb-core ;elif command -v apt &> /dev/null; then apt install -y lsb-release ;fi"
+pre_tasks["remove_lsb_release"]="if command -v yum &> /dev/null; then yum remove -y redhat-lsb-core ;elif command -v apt &> /dev/null; then apt remove -y lsb-release ;fi"
+
 echo "==> Testing install-docker scripts..."
 
 for DOCKER_VERSION_SCRIPT in $(find ../dist/ -mindepth 1 -type f -exec basename {} \; | sort -V); do
@@ -38,66 +43,70 @@ for DOCKER_VERSION_SCRIPT in $(find ../dist/ -mindepth 1 -type f -exec basename 
 			TEST_OS_IMAGE_TAG[1]="centos7 centos8"
 			TEST_OS_IMAGE_TAG[2]="16.04 18.04 20.04"
 		fi
-		for (( index=0; index<${#TEST_OS_IMAGE_NAME[@]}; index++ )); do
-			IMAGE=${TEST_OS_IMAGE_NAME[$index]}
-			for TAG in ${TEST_OS_IMAGE_TAG[$index]}; do
-				DOCKER_REGEX=${test_docker_versions["${IMAGE}:${TAG}"]}
-				if [[ "x${DOCKER_REGEX}" != "x" ]]; then
-					DOCKER_REGEX_RESULT=$(echo $DOCKER_VERSION | grep -E $DOCKER_REGEX)
-					if [[ "x${DOCKER_REGEX_RESULT}" == "x" ]]; then
-						echo "==> Skipping ${DOCKER_VERSION} for ${IMAGE}:${TAG}"
-						continue
-					fi
-				fi
-				echo "==> Testing $DOCKER_VERSION at ${IMAGE}:${TAG}..."
-				COMMAND="echo '' > /usr/bin/systemctl && bash /install.sh && bash -c 'if [[ \"\$(docker version --format '{{.Client.Version}}') 2>/dev/null\" != ${DOCKER_VERSION}* ]]; then echo \"Found  version (\$(docker version --format '{{.Client.Version}}')) does not match \"${DOCKER_VERSION}\"\"; exit 1; fi'"
-				# Patch for oracle linux 8 docker image as yum is not installed
-				if [ "$IMAGE" == "oraclelinux" ] && [ "$TAG" == "8" ]; then
-					COMMAND="echo '' > /usr/bin/systemctl && dnf install -y yum && bash /install.sh && bash -c 'if [[ \"\$(docker version --format '{{.Client.Version}}') 2>/dev/null\" != ${DOCKER_VERSION}* ]]; then echo \"Found  version (\$(docker version --format '{{.Client.Version}}')) does not match \"${DOCKER_VERSION}\"\"; exit 1; fi'"
-				fi
-				docker run -d --privileged \
-                                        --label install-docker="true" \
-                                        --label install-docker-image="${IMAGE}" \
-                                        --label install-docker-tag="${TAG}" \
-                                        --label install-docker-version="${DOCKER_VERSION}" \
-					-v /install-docker/dist/$DOCKER_VERSION_SCRIPT:/install.sh \
-					-v /pkgcache-yum/${IMAGE}-${TAG}/:/var/cache/yum \
-					-v /pkgcache-dnf/${IMAGE}-${TAG}/:/var/cache/dnf \
-					-v /pkgcache-apt/${IMAGE}-${TAG}/:/var/cache/apt \
-					-e DIND_TEST=true \
-					${IMAGE}:${TAG} \
-					sh -c "${COMMAND}"
-			done
-		done
-		echo "==> Waiting for all tests for Docker version ${DOCKER_VERSION} are complete"
-		while true; do
-			RUNNINGCONTAINERS=$(docker ps -q --filter "label=install-docker")
-			if [[ "x${RUNNINGCONTAINERS}" == "x" ]]; then
-				break
-			fi
-			echo "==> Still running for ${DOCKER_VERSION}: $(echo "${RUNNINGCONTAINERS}")"
-			echo "==> Sleeping 15 seconds to check tests for Docker version ${DOCKER_VERSION}"
-			sleep 15
-		done
-		# Gathering all containers to save exit code
-		ALLEXITEDCONTAINERS=$(docker ps -qa --filter "label=install-docker-version=${DOCKER_VERSION}")
-		for CONTAINER in $ALLEXITEDCONTAINERS; do
-			EXITCODE=$(docker inspect $CONTAINER --format='{{.State.ExitCode}}')
-			IMAGE=$(docker inspect $CONTAINER --format='{{ index .Config.Labels "install-docker-image" }}')
-			TAG=$(docker inspect $CONTAINER --format='{{ index .Config.Labels "install-docker-tag" }}')
-			DOCKER_VERSION=$(docker inspect $CONTAINER --format='{{ index .Config.Labels "install-docker-version" }}')
-			echo "${IMAGE}:${TAG}-${DOCKER_VERSION} exit code $EXITCODE"
-			if [ $EXITCODE -eq 0 ]; then
-				docker_versions_passed["${IMAGE}:${TAG}-${DOCKER_VERSION}"]="$EXITCODE"
-			else
-				FAIL="true"
-				docker_versions_failed["${IMAGE}:${TAG}-${DOCKER_VERSION}"]="$EXITCODE"
-				echo "Showing logs for ${IMAGE}:${TAG}-${DOCKER_VERSION}"
-				docker logs --tail=10 $CONTAINER
-			fi
-			echo "==> Cleaning up container ${CONTAINER}"
-			docker rm -f $CONTAINER
-		done
+        for key in "${!pre_tasks[@]}"; do
+            task_name=${key}
+		    for (( index=0; index<${#TEST_OS_IMAGE_NAME[@]}; index++ )); do
+		    	IMAGE=${TEST_OS_IMAGE_NAME[$index]}
+		    	for TAG in ${TEST_OS_IMAGE_TAG[$index]}; do
+		    		DOCKER_REGEX=${test_docker_versions["${IMAGE}:${TAG}"]}
+		    		if [[ "x${DOCKER_REGEX}" != "x" ]]; then
+		    			DOCKER_REGEX_RESULT=$(echo $DOCKER_VERSION | grep -E $DOCKER_REGEX)
+		    			if [[ "x${DOCKER_REGEX_RESULT}" == "x" ]]; then
+		    				echo "==> Skipping ${DOCKER_VERSION} for ${IMAGE}:${TAG}"
+		    				continue
+		    			fi
+		    		fi
+		    		echo "==> Testing $DOCKER_VERSION at ${IMAGE}:${TAG}..."
+		    		COMMAND="echo '' > /usr/bin/systemctl && bash /install.sh && bash -c 'if [[ \"\$(docker version --format '{{.Client.Version}}') 2>/dev/null\" != ${DOCKER_VERSION}* ]]; then echo \"Found  version (\$(docker version --format '{{.Client.Version}}')) does not match \"${DOCKER_VERSION}\"\"; exit 1; fi'"
+		    		# Patch for oracle linux 8 docker image as yum is not installed
+		    		if [ "$IMAGE" == "oraclelinux" ] && [ "$TAG" == "8" ]; then
+		    			COMMAND="echo '' > /usr/bin/systemctl && dnf install -y yum && bash /install.sh && bash -c 'if [[ \"\$(docker version --format '{{.Client.Version}}') 2>/dev/null\" != ${DOCKER_VERSION}* ]]; then echo \"Found  version (\$(docker version --format '{{.Client.Version}}')) does not match \"${DOCKER_VERSION}\"\"; exit 1; fi'"
+		    		fi
+
+		    		docker run -d --privileged \
+                                            --label install-docker="true" \
+                                            --label install-docker-image="${IMAGE}" \
+                                            --label install-docker-tag="${TAG}" \
+                                            --label install-docker-version="${DOCKER_VERSION}" \
+		    			-v /install-docker/dist/$DOCKER_VERSION_SCRIPT:/install.sh \
+		    			-v /pkgcache-yum/${IMAGE}-${TAG}/:/var/cache/yum \
+		    			-v /pkgcache-dnf/${IMAGE}-${TAG}/:/var/cache/dnf \
+		    			-v /pkgcache-apt/${IMAGE}-${TAG}/:/var/cache/apt \
+		    			-e DIND_TEST=true \
+		    			${IMAGE}:${TAG} \
+		    			sh -c "${pre_tasks[${task_name}]} ; ${COMMAND}"
+		    	done
+		    done
+		    echo "==> Waiting for all tests for Docker version ${DOCKER_VERSION} are complete"
+		    while true; do
+		    	RUNNINGCONTAINERS=$(docker ps -q --filter "label=install-docker")
+		    	if [[ "x${RUNNINGCONTAINERS}" == "x" ]]; then
+		    		break
+		    	fi
+		    	echo "==> Still running for ${DOCKER_VERSION}: $(echo "${RUNNINGCONTAINERS}")"
+		    	echo "==> Sleeping 15 seconds to check tests for Docker version ${DOCKER_VERSION}"
+		    	sleep 15
+		    done
+		    # Gathering all containers to save exit code
+		    ALLEXITEDCONTAINERS=$(docker ps -qa --filter "label=install-docker-version=${DOCKER_VERSION}")
+		    for CONTAINER in $ALLEXITEDCONTAINERS; do
+		    	EXITCODE=$(docker inspect $CONTAINER --format='{{.State.ExitCode}}')
+		    	IMAGE=$(docker inspect $CONTAINER --format='{{ index .Config.Labels "install-docker-image" }}')
+		    	TAG=$(docker inspect $CONTAINER --format='{{ index .Config.Labels "install-docker-tag" }}')
+		    	DOCKER_VERSION=$(docker inspect $CONTAINER --format='{{ index .Config.Labels "install-docker-version" }}')
+		    	echo "${IMAGE}:${TAG}-${DOCKER_VERSION} exit code $EXITCODE"
+		    	if [ $EXITCODE -eq 0 ]; then
+		    		docker_versions_passed["${IMAGE}:${TAG}-${DOCKER_VERSION}-${task_name}"]="$EXITCODE"
+		    	else
+		    		FAIL="true"
+		    		docker_versions_failed["${IMAGE}:${TAG}-${DOCKER_VERSION}-${task_name}"]="$EXITCODE"
+		    		echo "Showing logs for ${IMAGE}:${TAG}-${DOCKER_VERSION}-${task_name}"
+		    		docker logs --tail=10 $CONTAINER
+		    	fi
+		    	echo "==> Cleaning up container ${CONTAINER}"
+		    	docker rm -f $CONTAINER
+		    done
+        done
 		unset TEST_OS_DISTRO_IMAGE TEST_OS_IMAGE_TAG
 	fi
 done
