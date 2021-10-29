@@ -1,5 +1,5 @@
---- pkg/20.10.4/20.10.4.orig.sh	2021-04-01 09:49:01.000000000 -0700
-+++ pkg/20.10.4/20.10.4.sh	2021-04-01 09:49:01.000000000 -0700
+--- 20.10.4.orig.sh	2021-10-29 13:24:35.832285800 -0500
++++ 20.10.4.sh	2021-10-29 13:32:52.487243200 -0500
 @@ -21,26 +21,34 @@
  # the script was uploaded (Should only be modified by upload job):
  SCRIPT_COMMIT_SHA="3d8fe77c2c46c5b7571f94b42793905e5b3e42e4"
@@ -73,7 +73,14 @@
  command_exists() {
  	command -v "$@" > /dev/null 2>&1
  }
-@@ -334,6 +354,12 @@
+@@ -328,12 +348,18 @@
+ 			esac
+ 		;;
+ 
+-		centos|rhel)
++		almalinux|centos|rhel)
+ 			if [ -z "$dist_version" ] && [ -r /etc/os-release ]; then
+ 				dist_version="$(. /etc/os-release && echo "$VERSION_ID")"
  			fi
  		;;
  
@@ -97,7 +104,7 @@
  			;;
 -		centos|fedora|rhel)
 -			yum_repo="$DOWNLOAD_URL/linux/$lsb_dist/$REPO_FILE"
-+		centos|fedora|rhel|ol)
++		almalinux|centos|fedora|rhel|ol)
 +			# installing centos packages
 +			yum_repo="$DOWNLOAD_URL/linux/centos/$REPO_FILE"
  			if ! curl -Ifs "$yum_repo" > /dev/null; then
