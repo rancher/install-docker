@@ -13,7 +13,7 @@ while true; do
   sleep 5
 done
 
-test_docker_versions["ubuntu:16.04"]="^18.06|^18.09|^19.03|^20.10"
+test_docker_versions["ubuntu:16.04"]="^18.06|^18.09|^19.03|^20.10.[2-7]"
 test_docker_versions["ubuntu:18.04"]="^18.06|^18.09|^19.03|^20.10"
 test_docker_versions["ubuntu:20.04"]="^19.03.9$|^19.03.1[0-9]|^20.10"
 test_docker_versions["centos:centos7"]="^18.06|^18.09|^19.03|^20.10"
