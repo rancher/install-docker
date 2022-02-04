@@ -48,4 +48,9 @@ for DOCKER_VERSION in $(ls -1 .); do
 		fi
 		unset DOCKER_GIT_REPO DOCKER_GIT_COMMIT
 	fi
+	if [ ${DOCKER_VERSION} == '20.10' ]; then
+		TEMP_VERSION=$(find . -maxdepth 1 -name '20.10.*' | sort -V | tail -1)
+		VERSION=$(echo $TEMP_VERSION | sed 's/.\///g')
+		sed -i '/^VERSION=/s/=.*$/="'"$VERSION"'"/' ../dist/$DOCKER_VERSION.sh
+	fi
 done
