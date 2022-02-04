@@ -24,7 +24,7 @@ SCRIPT_COMMIT_SHA="93d2499759296ac1f9c510605fef85052a2c32be"
 CHANNEL="stable"
 DOWNLOAD_URL="https://download.docker.com"
 REPO_FILE="docker-ce.repo"
-VERSION="20.10"
+VERSION="20.10.12"
 DIND_TEST_WAIT=${DIND_TEST_WAIT:-3s}  # Wait time until docker start at dind test env
 
 # Issue https://github.com/rancher/rancher/issues/29246
@@ -424,7 +424,7 @@ do_install() {
 				fi
 				$sh_c 'apt-get update -qq >/dev/null'
 				$sh_c "DEBIAN_FRONTEND=noninteractive apt-get install -y -qq $pre_reqs >/dev/null"
-				$sh_c "curl -fsSL \"$DOWNLOAD_URL/linux/$lsb_dist/gpg\" | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg"
+				$sh_c "curl -fsSL \"$DOWNLOAD_URL/linux/$lsb_dist/gpg\" | gpg --dearmor --yes -o /usr/share/keyrings/docker-archive-keyring.gpg"
 				$sh_c "echo \"$apt_repo\" > /etc/apt/sources.list.d/docker.list"
 				$sh_c 'apt-get update -qq >/dev/null'
 			)
@@ -434,17 +434,30 @@ do_install() {
 					echo "# WARNING: VERSION pinning is not supported in DRY_RUN"
 				else
 					# Will work for incomplete versions IE (17.12), but may not actually grab the "latest" if in the test channel
-					pkg_pattern="$(echo "$VERSION" | sed "s/-ce-/~ce~.*/g" | sed "s/-/.*/g").*-0~$lsb_dist"
-					search_command="apt-cache madison 'docker-ce' | grep '$pkg_pattern' | head -1 | awk '{\$1=\$1};1' | cut -d' ' -f 3"
-					pkg_version="$($sh_c "$search_command")"
-					echo "INFO: Searching repository for VERSION '$VERSION'"
-					echo "INFO: $search_command"
-					if [ -z "$pkg_version" ]; then
-						echo
-						echo "ERROR: '$VERSION' not found amongst apt-cache madison results"
-						echo
-						exit 1
-					fi
+					current_version=$VERSION
+					while :
+					do
+						pkg_pattern="$(echo "$current_version" | sed "s/-ce-/~ce~.*/g" | sed "s/-/.*/g").*-0~$lsb_dist"
+						search_command="apt-cache madison 'docker-ce' | grep '$pkg_pattern' | head -1 | awk '{\$1=\$1};1' | cut -d' ' -f 3"
+						pkg_version="$($sh_c "$search_command")"
+						echo "INFO: Searching repository for VERSION '$VERSION'"
+						echo "INFO: $search_command"
+						if [ -z "$pkg_version" ]; then
+							echo
+							echo "ERROR: '$VERSION' not found amongst apt-cache madison results"
+							echo
+							lower_version=$(echo $current_version | awk -F. '{$NF = $NF - 1;} 1' | sed 's/ /./g')
+							current_version=$lower_version
+						else
+							echo "Installing Docker $lower_version ..."
+							$sh_c "curl https://releases.rancher.com/install-docker/$lower_version.sh | sh"
+							break
+						fi
+						if [ "$current_version" = "20.10.2" ]; then
+        						echo "ERROR: Docker 20.10.1 is not supported by this installation script."
+                                exit 1
+    						fi
+					done
 					if version_gte "18.09"; then
 							search_command="apt-cache madison 'docker-ce-cli' | grep '$pkg_pattern' | head -1 | awk '{\$1=\$1};1' | cut -d' ' -f 3"
 							echo "INFO: $search_command"
@@ -480,7 +493,29 @@ do_install() {
 		centos|fedora|rhel|ol|rocky)
 			if [ "$(uname -m)" != "s390x" ] && [ "$lsb_dist" = "rhel" ]; then
 				echo "Packages for RHEL are currently only available for s390x."
-				exit 1
+				echo "Trying to install a lower version of Docker."
+				current_version=$VERSION
+				while :
+				do
+					lower_version=$(echo $current_version | awk -F. '{$NF = $NF - 1;} 1' | sed 's/ /./g')
+					echo "Installing Docker $lower_version ..."
+					$sh_c "curl https://releases.rancher.com/install-docker/$lower_version.sh | sh"
+					if [ "$(docker version | grep Version)" ]; then
+						echo "Docker $lower_version installed successfully."
+						exit 0
+					fi
+					current_version=$lower_version
+					if [ "$current_version" = "20.10.2" ]; then
+        				echo "ERROR: Docker 20.10.1 is not supported by this installation script."
+                        exit 1
+    				fi
+				done
+			fi
+            # set vault.centos.or repo as CentOS8 is now EOL
+			if [ "$lsb_dist" = "centos" ] && [ "$dist_version" -ge "8" ]; then
+				$sh_c "find /etc/yum.repos.d -type f -exec sed -i 's/mirrorlist=http:\/\/mirrorlist.centos.org/\#mirrorlist=http:\/\/mirrorlist.centos.org/g' {} \;"
+				$sh_c "find /etc/yum.repos.d -type f -exec sed -i 's/\#baseurl=http:\/\/mirror.centos.org/baseurl=http:\/\/vault.centos.org/g' {} \;"
+				$sh_c "dnf swap centos-linux-repos centos-stream-repos -y"
 			fi
                         # installing centos packages
 			yum_repo="$DOWNLOAD_URL/linux/centos/$REPO_FILE"
@@ -540,17 +575,30 @@ do_install() {
 				if is_dry_run; then
 					echo "# WARNING: VERSION pinning is not supported in DRY_RUN"
 				else
-					pkg_pattern="$(echo "$VERSION" | sed "s/-ce-/\\\\.ce.*/g" | sed "s/-/.*/g").*$pkg_suffix"
-					search_command="$pkg_manager list --showduplicates 'docker-ce' | grep '$pkg_pattern' | tail -1 | awk '{print \$2}'"
-					pkg_version="$($sh_c "$search_command")"
-					echo "INFO: Searching repository for VERSION '$VERSION'"
-					echo "INFO: $search_command"
-					if [ -z "$pkg_version" ]; then
-						echo
-						echo "ERROR: '$VERSION' not found amongst $pkg_manager list results"
-						echo
-						exit 1
-					fi
+					current_version=$VERSION
+					while :
+					do
+						pkg_pattern="$(echo "$VERSION" | sed "s/-ce-/\\\\.ce.*/g" | sed "s/-/.*/g").*$pkg_suffix"
+						search_command="$pkg_manager list --showduplicates 'docker-ce' | grep '$pkg_pattern' | tail -1 | awk '{print \$2}'"
+						pkg_version="$($sh_c "$search_command")"
+						echo "INFO: Searching repository for VERSION '$VERSION'"
+						echo "INFO: $search_command"
+						if [ -z "$pkg_version" ]; then
+							echo
+							echo "ERROR: '$VERSION' not found amongst apt-cache madison results"
+							echo
+							lower_version=$(echo $current_version | awk -F. '{$NF = $NF - 1;} 1' | sed 's/ /./g')
+							current_version=$lower_version
+						else
+							echo "Installing Docker $lower_version ..."
+							$sh_c "curl https://releases.rancher.com/install-docker/$lower_version.sh | sh"
+							break
+						fi
+						if [ "$current_version" = "20.10.2" ]; then
+        						echo "ERROR: Docker 20.10.1 is not supported by this installation script."
+                                exit 1
+    						fi
+					done
 					if version_gte "18.09"; then
 						# older versions don't support a cli package
 						search_command="$pkg_manager list --showduplicates 'docker-ce-cli' | grep '$pkg_pattern' | tail -1 | awk '{print \$2}'"
@@ -579,7 +627,23 @@ do_install() {
 		sles)
 			if [ "$(uname -m)" != "s390x" ]; then
 				echo "Packages for SLES are currently only available for s390x"
-				exit 1
+				echo "Trying to install a lower version of Docker."
+				current_version=$VERSION
+				while :
+				do
+					lower_version=$(echo $current_version | awk -F. '{$NF = $NF - 1;} 1' | sed 's/ /./g')
+					echo "Installing Docker $lower_version ..."
+					$sh_c "curl https://releases.rancher.com/install-docker/$lower_version.sh | sh"
+					if [ "$(docker version | grep Version)" ]; then
+						echo "Docker $lower_version installed successfully."
+						exit 0
+					fi
+					current_version=$lower_version
+					if [ "$current_version" = "20.10.2" ]; then
+        				echo "ERROR: Docker 20.10.1 is not supported by this installation script."
+                        exit 1
+    				fi
+				done
 			fi
 			sles_repo="$DOWNLOAD_URL/linux/$lsb_dist/$REPO_FILE"
 			opensuse_repo="https://download.opensuse.org/repositories/security:SELinux/SLE_15_SP2/security:SELinux.repo"
@@ -612,17 +676,30 @@ do_install() {
 				if is_dry_run; then
 					echo "# WARNING: VERSION pinning is not supported in DRY_RUN"
 				else
-					pkg_pattern="$(echo "$VERSION" | sed "s/-ce-/\\\\.ce.*/g" | sed "s/-/.*/g")"
-					search_command="zypper search -s --match-exact 'docker-ce' | grep '$pkg_pattern' | tail -1 | awk '{print \$6}'"
-					pkg_version="$($sh_c "$search_command")"
-					echo "INFO: Searching repository for VERSION '$VERSION'"
-					echo "INFO: $search_command"
-					if [ -z "$pkg_version" ]; then
-						echo
-						echo "ERROR: '$VERSION' not found amongst zypper list results"
-						echo
-						exit 1
-					fi
+					current_version=$VERSION
+					while :
+					do
+						pkg_pattern="$(echo "$VERSION" | sed "s/-ce-/\\\\.ce.*/g" | sed "s/-/.*/g")"
+						search_command="zypper search -s --match-exact 'docker-ce' | grep '$pkg_pattern' | tail -1 | awk '{print \$6}'"
+						pkg_version="$($sh_c "$search_command")"
+						echo "INFO: Searching repository for VERSION '$VERSION'"
+						echo "INFO: $search_command"
+						if [ -z "$pkg_version" ]; then
+							echo
+							echo "ERROR: '$VERSION' not found amongst apt-cache madison results"
+							echo
+							lower_version=$(echo $current_version | awk -F. '{$NF = $NF - 1;} 1' | sed 's/ /./g')
+							current_version=$lower_version
+						else
+							echo "Installing Docker $lower_version ..."
+							$sh_c "curl https://releases.rancher.com/install-docker/$lower_version.sh | sh"
+							break
+						fi
+						if [ "$current_version" = "20.10.2" ]; then
+        						echo "ERROR: Docker 20.10.1 is not supported by this installation script."
+                                exit 1
+    						fi
+					done
 					search_command="zypper search -s --match-exact 'docker-ce-cli' | grep '$pkg_pattern' | tail -1 | awk '{print \$6}'"
 					# It's okay for cli_pkg_version to be blank, since older versions don't support a cli package
 					cli_pkg_version="$($sh_c "$search_command")"
