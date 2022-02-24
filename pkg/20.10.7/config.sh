@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DOCKER_GIT_COMMIT="7cae5f8b0decc17d6571f9f52eb840fbc13b2737"
+DOCKER_GIT_COMMIT="93d2499759296ac1f9c510605fef85052a2c32be"
 
 TEST_OS_IMAGE_NAME=(oraclelinux centos ubuntu)
 TEST_OS_IMAGE_TAG[0]="7 8"
