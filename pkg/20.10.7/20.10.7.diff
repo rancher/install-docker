@@ -1,15 +1,13 @@
---- 20.10.7.orig.sh	2022-02-24 14:40:13.148511654 +0530
-+++ 20.10.7.sh	2022-02-24 14:40:37.331720911 +0530
-@@ -21,28 +21,34 @@
+--- 20.10.7.orig.sh	2021-06-07 22:15:42.096377613 +0000
++++ 20.10.7.sh	2021-06-07 22:15:42.100377613 +0000
+@@ -21,26 +21,34 @@
  # the script was uploaded (Should only be modified by upload job):
- SCRIPT_COMMIT_SHA="93d2499759296ac1f9c510605fef85052a2c32be"
+ SCRIPT_COMMIT_SHA="7cae5f8b0decc17d6571f9f52eb840fbc13b2737"
  
--# strip "v" prefix if present
--VERSION="${VERSION#v}"
 +CHANNEL="stable"
 +DOWNLOAD_URL="https://download.docker.com"
 +REPO_FILE="docker-ce.repo"
-+VERSION="20.10.7"
++VERSION=20.10.6
 +DIND_TEST_WAIT=${DIND_TEST_WAIT:-3s}  # Wait time until docker start at dind test env
 +
 +# Issue https://github.com/rancher/rancher/issues/29246
@@ -56,9 +54,9 @@
  
  mirror=''
  DRY_RUN=${DRY_RUN:-}
-@@ -71,6 +77,18 @@
- 		;;
- esac
+@@ -75,6 +83,18 @@
+ 	has_rootless_extras=
+ fi
  
 +start_docker() {
 +	if [ ! -z $DIND_TEST ]; then
@@ -75,23 +73,22 @@
  command_exists() {
  	command -v "$@" > /dev/null 2>&1
  }
-@@ -351,6 +369,13 @@
- 			if [ -z "$dist_version" ] && [ -r /etc/os-release ]; then
- 				dist_version="$(. /etc/os-release && echo "$VERSION_ID")"
+@@ -348,6 +368,12 @@
  			fi
-+			
-+		;;
-+
+ 		;;
+ 
 +		oracleserver|ol)
 +			lsb_dist="ol"
 +			# need to switch lsb_dist to match yum repo URL
 +			dist_version="$(rpm -q --whatprovides redhat-release --queryformat "%{VERSION}\n" | sed 's/\/.*//' | sed 's/\..*//' | sed 's/Server*//')"
- 		;;
- 
++		;;
++
  		*)
-@@ -448,16 +473,24 @@
+ 			if command_exists lsb_release; then
+ 				dist_version="$(lsb_release --release | cut -f2)"
+@@ -423,12 +449,14 @@
  					# Install docker-ce-rootless-extras without "--no-install-recommends", so as to install slirp4netns when available
- 					$sh_c "DEBIAN_FRONTEND=noninteractive apt-get install -y -qq docker-ce-rootless-extras${pkg_version%=} >/dev/null"
+ 					$sh_c "DEBIAN_FRONTEND=noninteractive apt-get install -y -qq docker-ce-rootless-extras$pkg_version >/dev/null"
  				fi
 +                                start_docker
  			)
@@ -99,12 +96,8 @@
  			exit 0
  			;;
 -		centos|fedora|rhel)
-+		centos|fedora|rhel|ol)
- 			if [ "$(uname -m)" != "s390x" ] && [ "$lsb_dist" = "rhel" ]; then
- 				echo "Packages for RHEL are currently only available for s390x."
- 				exit 1
- 			fi
 -			yum_repo="$DOWNLOAD_URL/linux/$lsb_dist/$REPO_FILE"
++		centos|fedora|rhel|ol)
 +			# set vault.centos.or repo as CentOS8 is now EOL
 +			if [ "$lsb_dist" = "centos" ] && [ "$dist_version" -ge "8" ]; then
 +				$sh_c "find /etc/yum.repos.d -type f -exec sed -i 's/mirrorlist=http:\/\/mirrorlist.centos.org/\#mirrorlist=http:\/\/mirrorlist.centos.org/g' {} \;"
@@ -116,7 +109,7 @@
  			if ! curl -Ifs "$yum_repo" > /dev/null; then
  				echo "Error: Unable to curl repository file $yum_repo, is it valid?"
  				exit 1
-@@ -488,6 +521,25 @@
+@@ -459,6 +487,25 @@
  					$sh_c "$config_manager $disable_channel_flag docker-ce-*"
  					$sh_c "$config_manager $enable_channel_flag docker-ce-$CHANNEL"
  				fi
@@ -142,21 +135,9 @@
  				$sh_c "$pkg_manager makecache"
  			)
  			pkg_version=""
-@@ -536,10 +588,8 @@
- 				echo "Packages for SLES are currently only available for s390x"
- 				exit 1
- 			fi
--
--			sles_version="${dist_version##*.}"
- 			sles_repo="$DOWNLOAD_URL/linux/$lsb_dist/$REPO_FILE"
--			opensuse_repo="https://download.opensuse.org/repositories/security:SELinux/SLE_15_SP$sles_version/security:SELinux.repo"
-+			opensuse_repo="https://download.opensuse.org/repositories/security:SELinux/SLE_15_SP2/security:SELinux.repo"
- 			if ! curl -Ifs "$sles_repo" > /dev/null; then
- 				echo "Error: Unable to curl repository file $sles_repo, is it valid?"
- 				exit 1
-@@ -602,10 +652,25 @@
- 				if version_gte "20.10"; then
- 					$sh_c "zypper install -y docker-ce-rootless-extras$rootless_pkg_version"
+@@ -497,10 +544,25 @@
+ 				if [ -n "$has_rootless_extras" ]; then
+ 					$sh_c "$pkg_manager install -y -q docker-ce-rootless-extras$pkg_version"
  				fi
 +                                if ! command_exists iptables; then
 +                                        $sh_c "$pkg_manager install -y -q iptables"
@@ -180,10 +161,3 @@
  		*)
  			if [ -z "$lsb_dist" ]; then
  				if is_darwin; then
-@@ -627,4 +692,4 @@
- 
- # wrapped up in a function so that we have some protection against only getting
- # half the file during "curl | sh"
--do_install
-+do_install
-\ No newline at end of file
