@@ -113,21 +113,7 @@ check_forked() {
 			if [ -r /etc/debian_version ] && [ "$lsb_dist" != "ubuntu" ] && [ "$lsb_dist" != "raspbian" ]; then
 				# We're Debian and don't even know it!
 				lsb_dist=debian
-				dist_version="$(cat /etc/debian_version | sed 's/\/.*//' | sed 's/\..*//')"
-				case "$dist_version" in
-					10)
-						dist_version="buster"
-					;;
-					9)
-						dist_version="stretch"
-					;;
-					8|'Kali Linux 2')
-						dist_version="jessie"
-					;;
-					7)
-						dist_version="wheezy"
-					;;
-				esac
+				dist_version="$(cat /etc/os-release | sed -n 's/^VERSION_CODENAME=//p')"
 			fi
 		fi
 	fi
@@ -334,18 +320,7 @@ do_install() {
 		;;
 
 		debian|raspbian)
-			dist_version="$(cat /etc/debian_version | sed 's/\/.*//' | sed 's/\..*//')"
-			case "$dist_version" in
-				9)
-					dist_version="stretch"
-				;;
-				8)
-					dist_version="jessie"
-				;;
-				7)
-					dist_version="wheezy"
-				;;
-			esac
+			dist_version="$(cat /etc/os-release | sed -n 's/^VERSION_CODENAME=//p')"
 		;;
 
 		oracleserver)
