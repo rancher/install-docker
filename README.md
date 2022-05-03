@@ -3,23 +3,9 @@ Scripts for docker-machine to install a particular docker version
 
 Hosted at https://releases.rancher.com/install-docker/x.y[.z].sh, e.g.: 
 
-  - https://releases.rancher.com/install-docker/1.10.sh
-  - https://releases.rancher.com/install-docker/1.11.sh
-  - https://releases.rancher.com/install-docker/1.12.sh
-  - https://releases.rancher.com/install-docker/1.13.sh
-  - https://releases.rancher.com/install-docker/17.03.sh
-  - https://releases.rancher.com/install-docker/17.04.sh
-  - https://releases.rancher.com/install-docker/17.05.sh
-  - https://releases.rancher.com/install-docker/17.06.sh
-  - https://releases.rancher.com/install-docker/17.07.sh
-  - https://releases.rancher.com/install-docker/17.09.sh
-  - https://releases.rancher.com/install-docker/17.10.sh
-  - https://releases.rancher.com/install-docker/17.12.sh
-  - https://releases.rancher.com/install-docker/18.03.sh
-  - https://releases.rancher.com/install-docker/18.06.sh
-  - https://releases.rancher.com/install-docker/18.09.sh
-  - https://releases.rancher.com/install-docker/19.03.sh
   - https://releases.rancher.com/install-docker/20.10.sh
+
+Test bucket is located at https://releases.rancher.com/install-docker-dev/x.y[.z].sh
 
 ## Add new docker release
 
@@ -64,8 +50,9 @@ TEST_OS_IMAGE_TAG[2]="10"
 
 ## Sync releases
 
-`make sync`
+On each merge to master, scripts in `dist/` will be uploaded to `install-docker-dev` bucket and can be retrieved using https://releases.rancher.com/install-docker-dev/$VERSION.sh. The commit of the version that was uploaded can be found on https://releases.rancher.com/install-docker-dev/VERSION
 
+When testing has been completed, a tag can be created to upload the scripts in `dist/` to `install-docker` (https://releases.rancher.com/install-docker/$VERSION.sh). The tag of the version that was uploaded can be found on https://releases.rancher.com/install-docker/VERSION
 
 ## Previous manual instructions to add a new version
 
