@@ -38,7 +38,7 @@ steps:
   - name: add-commit-to-version-file
     image: rancher/dapper:v0.5.4
     commands:
-    - "echo ${DRONE_COMMIT} > dist/VERSION"
+    - "echo {\"version\": \"${DRONE_COMMIT}\"} > dist/VERSION"
     volumes:
     - name: docker
       path: /var/run/docker.sock
@@ -72,7 +72,7 @@ steps:
   - name: add-tag-to-version-file
     image: rancher/dapper:v0.5.4
     commands:
-    - "echo ${DRONE_TAG} > dist/VERSION"
+    - "echo {\"version\": \"${DRONE_TAG}\"} > dist/VERSION"
     volumes:
     - name: docker
       path: /var/run/docker.sock
