@@ -1,0 +1,41 @@
+name: Create release tag
+on: workflow_dispatch
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    name: Create tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v2
+      - name: Run tests
+        run: |
+          tag=$(bash scripts/generate-release-tag)
+          echo "::set-output name=generated-tag::$tag"
+        id: generate_tag
+      - uses: actions/github-script@v5.0.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const tag = '${{ steps.generate_tag.outputs.generated-tag }}'
+
+            const branch = '${{ github.ref_name }}'
+
+            try {
+              const resp = await github.rest.git.getRef({...context.repo, ref: `tags/${tag}`});
+              return core.setFailed(`the tag ${tag} already exists on ${resp.data.object.type} ${resp.data.object.sha}`);
+            } catch(err) {
+              if(err.status !== 404){
+                throw err;
+              }
+            }
+
+            github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `refs/tags/${tag}`,
+              sha: context.sha
+            })

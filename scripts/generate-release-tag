@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# Find latest Docker version
+LATEST_DOCKER=$(ls -1 dist/ | grep \.sh$ | sort -V | tail -1 | sed -e 's/\.sh//')
+
+# Get epoch
+EPOCH=$(date +%s)
+
+echo "${LATEST_DOCKER}-${EPOCH}"
