@@ -7,6 +7,11 @@ Hosted at https://releases.rancher.com/install-docker/x.y[.z].sh, e.g.:
 
 Test bucket is located at https://releases.rancher.com/install-docker-dev/x.y[.z].sh
 
+## Currently released versions
+
+[![install-docker](https://img.shields.io/badge/dynamic/json?label=install-docker&query=%24.version&url=https%3A%2F%2Freleases.rancher.com%2Finstall-docker%2FVERSION)](https://github.com/rancher/install-docker/tags)
+[![install-docker-dev](https://img.shields.io/badge/dynamic/json?label=install-docker-dev&query=%24.version&url=https%3A%2F%2Freleases.rancher.com%2Finstall-docker-dev%2FVERSION)](https://github.com/rancher/install-docker/commits/master)
+
 ## Add new docker release
 
 Example adding 20.10.7 with diff from 20.10.6:
