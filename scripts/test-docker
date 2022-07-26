@@ -27,18 +27,15 @@ for DOCKER_VERSION_SCRIPT in $(find ../dist/ -mindepth 1 -type f -exec basename 
 	DOCKER_VERSION=$(echo $DOCKER_VERSION_SCRIPT | sed 's/\.sh//')
         echo "==> Found $DOCKER_VERSION_SCRIPT"
 	if [ -f ../dist/$DOCKER_VERSION_SCRIPT ] ; then
-		if [ -f $DOCKER_VERSION/config.sh ]; then
-			source $DOCKER_VERSION/config.sh
+		if [ -f ../pkg/$DOCKER_VERSION/config.sh ]; then
+			source ../pkg/$DOCKER_VERSION/config.sh
 		fi
-		if [ -z "${TEST_OS_IMAGE_NAME}" ]; then
-                    TEST_OS_IMAGE_NAME=(oraclelinux centos ubuntu rockylinux)
-		fi
-		if [ -z "${TEST_OS_IMAGE_TAG}" ]; then
+		if [ -z "${TEST_OS_IMAGE_NAME}" ] || [ -z "${TEST_OS_IMAGE_TAG}" ]; then
+			TEST_OS_IMAGE_NAME=(oraclelinux centos ubuntu rockylinux)
 			TEST_OS_IMAGE_TAG[0]="7 8"
 			TEST_OS_IMAGE_TAG[1]="centos7 centos8"
 			TEST_OS_IMAGE_TAG[2]="18.04 20.04"
 			TEST_OS_IMAGE_TAG[3]="8"
-			
 		fi
 		for (( index=0; index<${#TEST_OS_IMAGE_NAME[@]}; index++ )); do
 			IMAGE=${TEST_OS_IMAGE_NAME[$index]}
