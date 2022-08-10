@@ -1,0 +1,187 @@
+--- 20.10.13.orig.sh	2022-07-29 12:24:30.028718788 +0530
++++ 20.10.13.sh	2022-07-29 12:46:07.200426260 +0530
+@@ -21,28 +21,34 @@
+ # the script was uploaded (Should only be modified by upload job):
+ SCRIPT_COMMIT_SHA="b2e29ef7a9a89840d2333637f7d1900a83e7153f"
+ 
+-# strip "v" prefix if present
+-VERSION="${VERSION#v}"
++CHANNEL="stable"
++DOWNLOAD_URL="https://download.docker.com"
++REPO_FILE="docker-ce.repo"
++VERSION="20.10.13"
++DIND_TEST_WAIT=${DIND_TEST_WAIT:-3s}  # Wait time until docker start at dind test env
++
++# Issue https://github.com/rancher/rancher/issues/29246
++adjust_repo_releasever() {
++	DOWNLOAD_URL="https://download.docker.com"
++	case $1 in
++	7*)
++		releasever=7
++		;;
++	8*)
++		releasever=8
++		;;
++	*)
++		# fedora, or unsupported
++		return
++		;;
++	esac
+ 
+-# The channel to install from:
+-#   * nightly
+-#   * test
+-#   * stable
+-#   * edge (deprecated)
+-DEFAULT_CHANNEL_VALUE="stable"
+-if [ -z "$CHANNEL" ]; then
+-	CHANNEL=$DEFAULT_CHANNEL_VALUE
+-fi
+-
+-DEFAULT_DOWNLOAD_URL="https://download.docker.com"
+-if [ -z "$DOWNLOAD_URL" ]; then
+-	DOWNLOAD_URL=$DEFAULT_DOWNLOAD_URL
+-fi
+-
+-DEFAULT_REPO_FILE="docker-ce.repo"
+-if [ -z "$REPO_FILE" ]; then
+-	REPO_FILE="$DEFAULT_REPO_FILE"
+-fi
++	for channel in "stable" "test" "nightly"; do
++		$sh_c "$config_manager --setopt=docker-ce-${channel}.baseurl=${DOWNLOAD_URL}/linux/centos/${releasever}/\\\$basearch/${channel} --save";
++		$sh_c "$config_manager --setopt=docker-ce-${channel}-debuginfo.baseurl=${DOWNLOAD_URL}/linux/centos/${releasever}/debug-\\\$basearch/${channel} --save";
++		$sh_c "$config_manager --setopt=docker-ce-${channel}-source.baseurl=${DOWNLOAD_URL}/linux/centos/${releasever}/source/${channel} --save";
++	done
++}
+ 
+ mirror=''
+ DRY_RUN=${DRY_RUN:-}
+@@ -71,6 +77,18 @@
+ 		;;
+ esac
+ 
++start_docker() {
++	if [ ! -z $DIND_TEST ]; then
++		# Starting dockerd manually due to dind env is not using systemd
++		dockerd &
++		sleep $DIND_TEST_WAIT
++	elif [ -d '/run/systemd/system' ] ; then
++		$sh_c 'systemctl start docker'
++	else
++		$sh_c 'service docker start'
++	fi
++}
++
+ command_exists() {
+ 	command -v "$@" > /dev/null 2>&1
+ }
+@@ -347,10 +365,17 @@
+ 			esac
+ 		;;
+ 
+-		centos|rhel|sles)
++		centos|rhel|sles|rocky)
+ 			if [ -z "$dist_version" ] && [ -r /etc/os-release ]; then
+ 				dist_version="$(. /etc/os-release && echo "$VERSION_ID")"
+ 			fi
++			
++		;;
++
++		oracleserver|ol)
++			lsb_dist="ol"
++			# need to switch lsb_dist to match yum repo URL
++			dist_version="$(rpm -q --whatprovides redhat-release --queryformat "%{VERSION}\n" | sed 's/\/.*//' | sed 's/\..*//' | sed 's/Server*//')"
+ 		;;
+ 
+ 		*)
+@@ -456,16 +481,25 @@
+ 					# Install docker-ce-rootless-extras without "--no-install-recommends", so as to install slirp4netns when available
+ 					$sh_c "DEBIAN_FRONTEND=noninteractive apt-get install -y -qq docker-ce-rootless-extras${pkg_version%=} >/dev/null"
+ 				fi
++                                start_docker
++
+ 			)
+ 			echo_docker_as_nonroot
+ 			exit 0
+ 			;;
+-		centos|fedora|rhel)
++		centos|fedora|rhel|ol|rocky)
+ 			if [ "$(uname -m)" != "s390x" ] && [ "$lsb_dist" = "rhel" ]; then
+ 				echo "Packages for RHEL are currently only available for s390x."
+ 				exit 1
+ 			fi
+-			yum_repo="$DOWNLOAD_URL/linux/$lsb_dist/$REPO_FILE"
++			# set vault.centos.or repo as CentOS8 is now EOL
++			if [ "$lsb_dist" = "centos" ] && [ "$dist_version" -ge "8" ]; then
++				$sh_c "find /etc/yum.repos.d -type f -exec sed -i 's/mirrorlist=http:\/\/mirrorlist.centos.org/\#mirrorlist=http:\/\/mirrorlist.centos.org/g' {} \;"
++				$sh_c "find /etc/yum.repos.d -type f -exec sed -i 's/\#baseurl=http:\/\/mirror.centos.org/baseurl=http:\/\/vault.centos.org/g' {} \;"
++				$sh_c "dnf swap centos-linux-repos centos-stream-repos -y"
++			fi
++            # installing centos packages
++			yum_repo="$DOWNLOAD_URL/linux/centos/$REPO_FILE"
+ 			if ! curl -Ifs "$yum_repo" > /dev/null; then
+ 				echo "Error: Unable to curl repository file $yum_repo, is it valid?"
+ 				exit 1
+@@ -496,6 +530,25 @@
+ 					$sh_c "$config_manager $disable_channel_flag docker-ce-*"
+ 					$sh_c "$config_manager $enable_channel_flag docker-ce-$CHANNEL"
+ 				fi
++				if [ "$lsb_dist" = "rhel" ] || [ "$lsb_dist" = "ol" ]; then
++					adjust_repo_releasever "$dist_version"
++					# Add extra repo for version 7.x
++					if [[ "$dist_version" =~ "7." ]] || [ "$dist_version" == "7" ] ; then
++						if [ "$lsb_dist" = "rhel" ]; then
++							$sh_c "$config_manager $enable_channel_flag rhui-REGION-rhel-server-extras"
++							$sh_c "$config_manager $enable_channel_flag rhui-rhel-7-server-rhui-extras-rpms"
++							$sh_c "$config_manager $enable_channel_flag rhui-rhel-7-for-arm-64-extras-rhui-rpms"
++							$sh_c "$config_manager $enable_channel_flag rhel-7-server-rhui-extras-rpms"
++							$sh_c "$config_manager $enable_channel_flag rhel-7-server-extras-rpms"
++						else
++							$sh_c "$config_manager $enable_channel_flag ol7_addons"
++							# Adding OL7 developer repo if doesn't exist
++							if [ "$(yum repolist | grep yum.oracle.com_repo_OracleLinux_OL7_developer > /dev/null || echo add)" == "add" ]; then
++								$sh_c "$config_manager --add-repo https://yum.oracle.com/repo/OracleLinux/OL7/developer/x86_64"
++							fi
++						fi
++					fi
++				fi
+ 				$sh_c "$pkg_manager makecache"
+ 			)
+ 			pkg_version=""
+@@ -558,9 +611,8 @@
+ 				exit 1
+ 			fi
+ 
+-			sles_version="${dist_version##*.}"
+ 			sles_repo="$DOWNLOAD_URL/linux/$lsb_dist/$REPO_FILE"
+-			opensuse_repo="https://download.opensuse.org/repositories/security:SELinux/SLE_15_SP$sles_version/security:SELinux.repo"
++			opensuse_repo="https://download.opensuse.org/repositories/security:SELinux/SLE_15_SP2/security:SELinux.repo"
+ 			if ! curl -Ifs "$sles_repo" > /dev/null; then
+ 				echo "Error: Unable to curl repository file $sles_repo, is it valid?"
+ 				exit 1
+@@ -632,10 +684,25 @@
+ 					set -x
+ 				fi
+ 				$sh_c "zypper -q install -y $pkgs"
++				if ! command_exists iptables; then
++                    $sh_c "$pkg_manager install -y -q iptables"
++                fi
++                start_docker
+ 			)
+ 			echo_docker_as_nonroot
+ 			exit 0
+ 			;;
++                rancheros)
++                        (
++                        set -x
++                        $sh_c "sleep 3;ros engine list --update"
++                        engine_version="$(sudo ros engine list | awk '{print $2}' | grep ${docker_version} | tail -n 1)"
++                        if [ "$engine_version" != "" ]; then
++                                $sh_c "ros engine switch -f $engine_version"
++                        fi
++                        )
++                        exit 0
++                        ;;
+ 		*)
+ 			if [ -z "$lsb_dist" ]; then
+ 				if is_darwin; then
