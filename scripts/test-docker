@@ -13,14 +13,14 @@ while true; do
   sleep 5
 done
 
-test_docker_versions["ubuntu:18.04"]="^19.03.15$|^20.10|^23.0.[0-1]"
-test_docker_versions["ubuntu:20.04"]="^^19.03.15$|^20.10|^23.0.[0-1]"
-test_docker_versions["ubuntu:22.04"]="^20.10.1[3-9]|^20.10.2[0-9]|^23.0.[0-1]"
-test_docker_versions["centos:centos7"]="^19.03.15$|^20.10|^23.0.[0-1]"
-test_docker_versions["centos:centos8"]="^20.10.[7-9]|^20.10.1[0-9]|^20.10.2[0-9]|^23.0.[0-1]"
-test_docker_versions["oraclelinux:7"]="^19.03.15$|^20.10|^23.0.[0-1]"
-test_docker_versions["oraclelinux:8"]="^20.10|^23.0.[0-1]"
-test_docker_versions["rockylinux:8"]="^20.10.[8-9]|^20.10.1[0-9]|^20.10.2[0-9]|^23.0.[0-1]"
+test_docker_versions["ubuntu:18.04"]="^19.03.15$|^20.10|^23.0"
+test_docker_versions["ubuntu:20.04"]="^^19.03.15$|^20.10|^23.0"
+test_docker_versions["ubuntu:22.04"]="^20.10.1[3-9]|^20.10.2[0-9]|^23.0"
+test_docker_versions["centos:centos7"]="^19.03.15$|^20.10|^23.0"
+test_docker_versions["centos:centos8"]="^20.10.[7-9]|^20.10.1[0-9]|^20.10.2[0-9]|^23.0"
+test_docker_versions["oraclelinux:7"]="^19.03.15$|^20.10|^23.0"
+test_docker_versions["oraclelinux:8"]="^20.10|^23.0"
+test_docker_versions["rockylinux:8"]="^20.10.[8-9]|^20.10.1[0-9]|^20.10.2[0-9]|^23.0"
 
 echo "==> Testing install-docker scripts..."
 
