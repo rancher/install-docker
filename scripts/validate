@@ -35,3 +35,21 @@ done
 
 echo "==> Checking basic shell validation"
 find ../dist -name \*.sh -exec sh -n {} \;
+
+
+echo "==> Checking if all symlinks in dist are pointing to the latest versions"
+
+for LINK_PREFIX in `find ../dist/ -type l -exec basename {} \; | grep sh | sed 's/\.sh//'| sort -V`
+do
+    
+    TARGET_FILE=`readlink ../dist/$LINK_PREFIX.sh`
+    EXPECTED_TARGET_FILE=`find ../dist/ -type f -name "$LINK_PREFIX*" -exec basename {} \; | sort -V | tail -1`
+
+    if [[ $EXPECTED_TARGET_FILE == $TARGET_FILE ]]
+    then
+        echo "[INF] $LINK_PREFIX.sh is pointing to the latest $TARGET_FILE"
+    else
+        echo "[ERR] $LINK_PREFIX.sh is pointing to $TARGET_FILE instead of the latest version $EXPECTED_TARGET_FILE"
+        exit 1
+    fi
+done

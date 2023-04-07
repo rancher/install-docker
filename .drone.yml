@@ -10,7 +10,7 @@ steps:
   - name: validate
     image: rancher/dapper:v0.5.4
     commands:
-    - 'find ./dist -name \*.sh -exec sh -n {} \;'
+    - dapper validate
     volumes:
     - name: docker
       path: /var/run/docker.sock
