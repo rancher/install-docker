@@ -10,13 +10,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v2
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
       - name: Run tests
         run: |
           tag=$(bash scripts/generate-release-tag)
-          echo "::set-output name=generated-tag::$tag"
+          echo "generated-tag=$tag" >> $GITHUB_OUTPUT
         id: generate_tag
-      - uses: actions/github-script@v5.0.0
+      - uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410 # v6.4.1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
