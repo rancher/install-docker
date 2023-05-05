@@ -485,10 +485,6 @@ do_install() {
 			exit 0
 			;;
 		centos|fedora|rhel|ol|rocky)
-			if [ "$(uname -m)" != "s390x" ] && [ "$lsb_dist" = "rhel" ]; then
-				echo "Packages for RHEL are currently only available for s390x."
-				exit 1
-			fi
 			# set vault.centos.or repo as CentOS8 is now EOL
 			if [ "$lsb_dist" = "centos" ] && [ "$dist_version" -ge "8" ]; then
 				$sh_c "find /etc/yum.repos.d -type f -exec sed -i 's/mirrorlist=http:\/\/mirrorlist.centos.org/\#mirrorlist=http:\/\/mirrorlist.centos.org/g' {} \;"
@@ -511,7 +507,7 @@ do_install() {
 				pkg_suffix="el"
 			fi
 			repo_file_url="$DOWNLOAD_URL/linux/$lsb_dist/$REPO_FILE"
-			if [ "$lsb_dist" = "ol" ] || [ "$lsb_dist" = "rocky" ]; then
+			if [ "$lsb_dist" = "ol" ] || [ "$lsb_dist" = "rocky" ] || [ "$lsb_dist" = "rhel" ]; then
 				repo_file_url="$DOWNLOAD_URL/linux/centos/$REPO_FILE"
 			fi
 			(

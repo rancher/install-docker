@@ -1,5 +1,5 @@
---- 20.10.24.orig.sh	2023-05-05 16:40:09.913545090 +0000
-+++ 20.10.24.sh	2023-05-05 16:40:09.921545089 +0000
+--- 20.10.24.orig.sh	2023-05-08 14:45:20.378271328 +0530
++++ 20.10.24.sh	2023-05-08 14:44:46.431897959 +0530
 @@ -21,28 +21,34 @@
  # the script was uploaded (Should only be modified by upload job):
  SCRIPT_COMMIT_SHA="a8a6b338bdfedd7ddefb96fe3e7fe7d4036d945a"
@@ -94,7 +94,7 @@
  		;;
  
  		*)
-@@ -453,15 +478,23 @@
+@@ -453,14 +478,18 @@
  					set -x
  				fi
  				$sh_c "DEBIAN_FRONTEND=noninteractive apt-get install -y -qq $pkgs >/dev/null"
@@ -105,31 +105,29 @@
  			exit 0
  			;;
 -		centos|fedora|rhel)
+-			if [ "$(uname -m)" != "s390x" ] && [ "$lsb_dist" = "rhel" ]; then
+-				echo "Packages for RHEL are currently only available for s390x."
+-				exit 1
 +		centos|fedora|rhel|ol|rocky)
- 			if [ "$(uname -m)" != "s390x" ] && [ "$lsb_dist" = "rhel" ]; then
- 				echo "Packages for RHEL are currently only available for s390x."
- 				exit 1
- 			fi
 +			# set vault.centos.or repo as CentOS8 is now EOL
 +			if [ "$lsb_dist" = "centos" ] && [ "$dist_version" -ge "8" ]; then
 +				$sh_c "find /etc/yum.repos.d -type f -exec sed -i 's/mirrorlist=http:\/\/mirrorlist.centos.org/\#mirrorlist=http:\/\/mirrorlist.centos.org/g' {} \;"
 +				$sh_c "find /etc/yum.repos.d -type f -exec sed -i 's/\#baseurl=http:\/\/mirror.centos.org/baseurl=http:\/\/vault.centos.org/g' {} \;"
 +				$sh_c "dnf swap centos-linux-repos centos-stream-repos -y"
-+			fi
+ 			fi
  			if [ "$lsb_dist" = "fedora" ]; then
  				pkg_manager="dnf"
- 				config_manager="dnf config-manager"
-@@ -478,6 +511,9 @@
+@@ -478,6 +507,9 @@
  				pkg_suffix="el"
  			fi
  			repo_file_url="$DOWNLOAD_URL/linux/$lsb_dist/$REPO_FILE"
-+			if [ "$lsb_dist" = "ol" ] || [ "$lsb_dist" = "rocky" ]; then
++			if [ "$lsb_dist" = "ol" ] || [ "$lsb_dist" = "rocky" ] || [ "$lsb_dist" = "rhel" ]; then
 +				repo_file_url="$DOWNLOAD_URL/linux/centos/$REPO_FILE"
 +			fi
  			(
  				if ! is_dry_run; then
  					set -x
-@@ -489,6 +525,25 @@
+@@ -489,6 +521,25 @@
  					$sh_c "$config_manager $disable_channel_flag docker-ce-*"
  					$sh_c "$config_manager $enable_channel_flag docker-ce-$CHANNEL"
  				fi
@@ -155,7 +153,7 @@
  				$sh_c "$pkg_manager makecache"
  			)
  			pkg_version=""
-@@ -548,8 +603,7 @@
+@@ -548,8 +599,7 @@
  			if [ "$dist_version" = "15.3" ]; then
  				sles_version="SLE_15_SP3"
  			else
@@ -165,7 +163,7 @@
  			fi
  			opensuse_repo="https://download.opensuse.org/repositories/security:SELinux/$sles_version/security:SELinux.repo"
  			repo_file_url="$DOWNLOAD_URL/linux/$lsb_dist/$REPO_FILE"
-@@ -615,10 +669,25 @@
+@@ -615,10 +665,25 @@
  					set -x
  				fi
  				$sh_c "zypper -q install -y $pkgs"
