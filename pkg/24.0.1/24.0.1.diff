@@ -1,5 +1,5 @@
---- 24.0.1.orig.sh	2023-06-15 15:02:37.956124069 +0000
-+++ 24.0.1.sh	2023-06-15 15:02:37.963124123 +0000
+--- 24.0.1.orig.sh	2023-07-12 11:26:11.154740642 +0000
++++ 24.0.1.sh	2023-07-12 11:26:11.161740681 +0000
 @@ -82,28 +82,34 @@
  # the script was uploaded (Should only be modified by upload job):
  SCRIPT_COMMIT_SHA="c2de0811708b6d9015ed1a2c80f02c9b70c8ce7b"
@@ -94,7 +94,7 @@
  		;;
  
  		*)
-@@ -553,14 +578,17 @@
+@@ -553,15 +578,12 @@
  					set -x
  				fi
  				$sh_c "DEBIAN_FRONTEND=noninteractive apt-get install -y -qq $pkgs >/dev/null"
@@ -107,16 +107,12 @@
 -			if [ "$(uname -m)" != "s390x" ] && [ "$lsb_dist" = "rhel" ]; then
 -				echo "Packages for RHEL are currently only available for s390x."
 -				exit 1
+-			fi
 +		centos|fedora|rhel|ol|rocky)
-+			# set vault.centos.or repo as CentOS8 is now EOL
-+			if [ "$lsb_dist" = "centos" ] && [ "$dist_version" -ge "8" ]; then
-+				$sh_c "find /etc/yum.repos.d -type f -exec sed -i 's/mirrorlist=http:\/\/mirrorlist.centos.org/\#mirrorlist=http:\/\/mirrorlist.centos.org/g' {} \;"
-+				$sh_c "find /etc/yum.repos.d -type f -exec sed -i 's/\#baseurl=http:\/\/mirror.centos.org/baseurl=http:\/\/vault.centos.org/g' {} \;"
-+				$sh_c "dnf swap centos-linux-repos centos-stream-repos -y"
- 			fi
  			if [ "$lsb_dist" = "fedora" ]; then
  				pkg_manager="dnf"
-@@ -578,6 +606,9 @@
+ 				config_manager="dnf config-manager"
+@@ -578,6 +600,9 @@
  				pkg_suffix="el"
  			fi
  			repo_file_url="$DOWNLOAD_URL/linux/$lsb_dist/$REPO_FILE"
@@ -126,7 +122,7 @@
  			(
  				if ! is_dry_run; then
  					set -x
-@@ -589,6 +620,25 @@
+@@ -589,6 +614,25 @@
  					$sh_c "$config_manager $disable_channel_flag 'docker-ce-*'"
  					$sh_c "$config_manager $enable_channel_flag 'docker-ce-$CHANNEL'"
  				fi
@@ -152,7 +148,7 @@
  				$sh_c "$pkg_manager makecache"
  			)
  			pkg_version=""
-@@ -648,8 +698,7 @@
+@@ -648,8 +692,7 @@
  			if [ "$dist_version" = "15.3" ]; then
  				sles_version="SLE_15_SP3"
  			else
@@ -162,7 +158,7 @@
  			fi
  			repo_file_url="$DOWNLOAD_URL/linux/$lsb_dist/$REPO_FILE"
  			pre_reqs="ca-certificates curl libseccomp2 awk"
-@@ -715,10 +764,25 @@
+@@ -715,10 +758,25 @@
  					set -x
  				fi
  				$sh_c "zypper -q install -y $pkgs"
