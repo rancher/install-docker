@@ -584,12 +584,6 @@ do_install() {
 			exit 0
 			;;
 		centos|fedora|rhel|ol|rocky)
-			# set vault.centos.or repo as CentOS8 is now EOL
-			if [ "$lsb_dist" = "centos" ] && [ "$dist_version" -ge "8" ]; then
-				$sh_c "find /etc/yum.repos.d -type f -exec sed -i 's/mirrorlist=http:\/\/mirrorlist.centos.org/\#mirrorlist=http:\/\/mirrorlist.centos.org/g' {} \;"
-				$sh_c "find /etc/yum.repos.d -type f -exec sed -i 's/\#baseurl=http:\/\/mirror.centos.org/baseurl=http:\/\/vault.centos.org/g' {} \;"
-				$sh_c "dnf swap centos-linux-repos centos-stream-repos -y"
-			fi
 			if [ "$lsb_dist" = "fedora" ]; then
 				pkg_manager="dnf"
 				config_manager="dnf config-manager"
