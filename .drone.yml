@@ -8,7 +8,7 @@ platform:
 
 steps:
   - name: validate
-    image: rancher/dapper:v0.5.4
+    image: rancher/dapper:v0.6.0
     commands:
     - dapper validate
     volumes:
@@ -23,7 +23,7 @@ steps:
       - tag
 
   - name: test
-    image: rancher/dapper:v0.5.4
+    image: rancher/dapper:v0.6.0
     commands:
     - dapper test
     volumes:
@@ -36,7 +36,7 @@ steps:
       - pull_request
 
   - name: add-commit-to-version-file
-    image: rancher/dapper:v0.5.4
+    image: rancher/dapper:v0.6.0
     commands:
     - 'echo {\"version\": \"${DRONE_COMMIT}\"} > dist/VERSION'
     volumes:
@@ -70,7 +70,7 @@ steps:
       - push
 
   - name: add-tag-to-version-file
-    image: rancher/dapper:v0.5.4
+    image: rancher/dapper:v0.6.0
     commands:
     - 'echo {\"version\": \"${DRONE_TAG}\"} > dist/VERSION'
     volumes:
