@@ -13,13 +13,9 @@ while true; do
   sleep 5
 done
 
-test_docker_versions["ubuntu:18.04"]="^19.03.15$|^20.10.[2-9]\d$|^23.0|^24.0|^25.0"
-test_docker_versions["ubuntu:20.04"]="^19.03.15$|^20.10.[2-9]\d$|^23.0|^24.0|^25.0"
 test_docker_versions["ubuntu:22.04"]="^20.10.[2-9]\d$|^23.0|^24.0|^25.0"
-test_docker_versions["centos:centos7"]="^19.03.15$|^20.10.[2-9]\d$|^23.0|^24.0|^25.0"
-test_docker_versions["centos:centos8"]="^20.10.[2-9]\d$|^23.0"
+test_docker_versions["centos:centos7"]="^20.10.[2-9]\d$|^23.0|^24.0|^25.0"
 test_docker_versions["quay.io/centos/centos:stream8"]="^24.0|^25.0"
-test_docker_versions["oraclelinux:7"]="^19.03.15$|^20.10.[2-9]\d$|^23.0|^24.0|^25.0"
 test_docker_versions["oraclelinux:8"]="^20.10.[2-9]\d$|^23.0|^24.0|^25.0"
 test_docker_versions["rockylinux:8"]="^20.10.[2-9]\d$|^23.0|^24.0|^25.0"
 test_docker_versions["redhat/ubi9:9.0.0"]="^20.10.(2[4-9]|[3-9]\d)$|^23.0.([3-9]|[1-9]\d)$|^24.0|^25.0"
@@ -37,9 +33,9 @@ for DOCKER_VERSION_SCRIPT in $(find ../dist/ -mindepth 1 -type f -exec basename 
 		fi
 		if [ -z "${TEST_OS_IMAGE_NAME}" ] && [ -z "${TEST_OS_IMAGE_TAG}" ]; then
 			TEST_OS_IMAGE_NAME=(oraclelinux centos ubuntu rockylinux redhat/ubi9 quay.io/centos/centos)
-			TEST_OS_IMAGE_TAG[0]="7 8"
-			TEST_OS_IMAGE_TAG[1]="centos7 centos8"
-			TEST_OS_IMAGE_TAG[2]="18.04 20.04 22.04"
+			TEST_OS_IMAGE_TAG[0]="8"
+			TEST_OS_IMAGE_TAG[1]="centos7"
+			TEST_OS_IMAGE_TAG[2]="22.04"
 			TEST_OS_IMAGE_TAG[3]="8"
 			TEST_OS_IMAGE_TAG[4]="9.0.0"
 			TEST_OS_IMAGE_TAG[5]="stream8"
