@@ -13,15 +13,15 @@ while true; do
   sleep 5
 done
 
-test_docker_versions["ubuntu:22.04"]="^20.10.24$|^23.0|^24.0|^25.0|^26.0"
-test_docker_versions["centos:centos7"]="^20.10.24$|^23.0|^24.0|^25.0|^26.0"
-test_docker_versions["quay.io/centos/centos:stream8"]="^24.0|^25.0|^26.0"
-test_docker_versions["oraclelinux:8"]="^20.10.24$|^23.0|^24.0|^25.0|^26.0"
-test_docker_versions["oraclelinux:9"]="^20.10.24$|^23.0|^24.0|^25.0|^26.0"
-test_docker_versions["rockylinux:8"]="^20.10.24$|^23.0|^24.0|^25.0|^26.0"
-test_docker_versions["rockylinux:9"]="^20.10.24$|^23.0|^24.0|^25.0|^26.0"
-test_docker_versions["redhat/ubi8:8.9"]="^20.10.24$|^23.0|^24.0|^25.0|^26.0"
-test_docker_versions["redhat/ubi9:9.3"]="^20.10.24$|^23.0|^24.0|^25.0|^26.0"
+test_docker_versions["ubuntu:22.04"]="^20.10.24$|^23.0.([4-9]|[1-9]\d)$|^24.0|^25.0|^26.0|^26.1"
+test_docker_versions["centos:centos7"]="^20.10.24$|^23.0.([4-9]|[1-9]\d)$|^24.0|^25.0|^26.0|^26.1"
+test_docker_versions["quay.io/centos/centos:stream8"]="^24.0|^25.0|^26.0|^26.1"
+test_docker_versions["oraclelinux:8"]="^20.10.24$|^23.0.([4-9]|[1-9]\d)$|^24.0|^25.0|^26.0|^26.1"
+test_docker_versions["oraclelinux:9"]="^20.10.24$|^23.0.([4-9]|[1-9]\d)$|^24.0|^25.0|^26.0|^26.1"
+test_docker_versions["rockylinux:8"]="^20.10.24$|^23.0.([4-9]|[1-9]\d)$|^24.0|^25.0|^26.0|^26.1"
+test_docker_versions["rockylinux:9"]="^20.10.24$|^23.0.([4-9]|[1-9]\d)$|^24.0|^25.0|^26.0|^26.1"
+test_docker_versions["redhat/ubi8:8.9"]="^20.10.24$|^23.0.([4-9]|[1-9]\d)$|^24.0|^25.0|^26.0|^26.1"
+test_docker_versions["redhat/ubi9:9.3"]="^20.10.24$|^23.0.([4-9]|[1-9]\d)$|^24.0|^25.0|^26.0|^26.1"
 
 echo "==> Testing install-docker scripts..."
 
