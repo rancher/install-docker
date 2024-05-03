@@ -69,7 +69,7 @@ jobs:
           destination: releases.rancher.com/install-docker-dev
           predefinedAcl: publicRead
           headers: |-
-            Cache-Control: public,no-cache,proxy-revalidate
+            cache-control: public,no-cache,proxy-revalidate
 
   upload:
     permissions:
@@ -101,4 +101,4 @@ jobs:
           destination: releases.rancher.com/install-docker
           predefinedAcl: publicRead
           headers: |-
-            Cache-Control: public,no-cache,proxy-revalidate
+            cache-control: public,no-cache,proxy-revalidate
