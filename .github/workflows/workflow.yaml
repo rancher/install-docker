@@ -57,7 +57,7 @@ jobs:
         uses: rancher-eio/read-vault-secrets@main
         with:
           secrets: |
-            secret/data/github/repo/${{ github.repository }}/google-auth/rancher/credentials | GOOGLE_AUTH
+            secret/data/github/repo/${{ github.repository }}/google-auth/rancher/credentials token | GOOGLE_AUTH
       - name: Authenticate with Google Cloud
         uses: 'google-github-actions/auth@v2'
         with:
@@ -89,7 +89,7 @@ jobs:
         uses: rancher-eio/read-vault-secrets@main
         with:
           secrets: |
-            secret/data/github/repo/${{ github.repository }}/google-auth/rancher/credentials | GOOGLE_AUTH
+            secret/data/github/repo/${{ github.repository }}/google-auth/rancher/credentials token | GOOGLE_AUTH
       - name: Authenticate with Google Cloud
         uses: 'google-github-actions/auth@v2'
         with:
