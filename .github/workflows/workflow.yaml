@@ -52,7 +52,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Add commit to version file
         run: |
-          echo "{\"version\": \"${{ github.sha }}\"}" > dist/VERSION"
+          echo "{\"version\": \"${{ github.sha }}\"}" > dist/VERSION
       - name: Retrieve Google auth from vault
         uses: rancher-eio/read-vault-secrets@main
         with:
@@ -84,7 +84,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Add tag to version file
         run: |
-          echo "{\"version\": \"${{ github.ref_name }}\"}" > dist/VERSION"
+          echo "{\"version\": \"${{ github.ref_name }}\"}" > dist/VERSION
       - name: Retrieve Google auth from vault
         uses: rancher-eio/read-vault-secrets@main
         with:
