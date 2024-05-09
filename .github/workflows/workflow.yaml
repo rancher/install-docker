@@ -67,6 +67,7 @@ jobs:
         with:
           path: dist/
           destination: releases.rancher.com/install-docker-dev
+          parent: false
           predefinedAcl: publicRead
           headers: |-
             cache-control: public,no-cache,proxy-revalidate
@@ -99,6 +100,7 @@ jobs:
         with:
           path: dist/
           destination: releases.rancher.com/install-docker
+          parent: false
           predefinedAcl: publicRead
           headers: |-
             cache-control: public,no-cache,proxy-revalidate
