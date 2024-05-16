@@ -1,0 +1,87 @@
+name: Creates a tag and upload release
+on: workflow_dispatch
+
+jobs:
+  validate:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    container: 
+      image: rancher/dapper:v0.6.0
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Validate
+        run: dapper validate
+
+  tag:
+    permissions:
+      contents: write
+    needs: validate
+    runs-on: ubuntu-latest
+    outputs:
+      generated-tag: ${{ steps.generate_tag.outputs.generated-tag }}
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - name: Run tests
+        id: generate_tag
+        run: |
+          tag=$(bash scripts/generate-release-tag)
+          echo "generated-tag=$tag" >> $GITHUB_OUTPUT
+      - uses: actions/github-script@v7.0.1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const tag = '${{ steps.generate_tag.outputs.generated-tag }}'
+
+            const branch = '${{ github.ref_name }}'
+
+            try {
+              const resp = await github.rest.git.getRef({...context.repo, ref: `tags/${tag}`});
+              return core.setFailed(`the tag ${tag} already exists on ${resp.data.object.type} ${resp.data.object.sha}`);
+            } catch(err) {
+              if(err.status !== 404){
+                throw err;
+              }
+            }
+
+            github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `refs/tags/${tag}`,
+              sha: context.sha
+            })
+
+  upload:
+    permissions:
+      contents: read
+      id-token: write
+    needs: [validate,tag]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Add tag to version file
+        run: |
+          echo "{\"version\": \"${{ needs.tag.outputs.generated-tag }}\"}" > dist/VERSION
+      - name: Retrieve Google auth from vault
+        uses: rancher-eio/read-vault-secrets@main
+        with:
+          secrets: |
+            secret/data/github/repo/${{ github.repository }}/google-auth/rancher/credentials token | GOOGLE_AUTH
+      - name: Authenticate with Google Cloud
+        uses: 'google-github-actions/auth@v2'
+        with:
+          credentials_json: '${{ env.GOOGLE_AUTH }}'
+      - name: Upload to Google Cloud Storage
+        uses: google-github-actions/upload-cloud-storage@v2
+        with:
+          path: dist/
+          destination: releases.rancher.com/install-docker
+          parent: false
+          predefinedAcl: publicRead
+          headers: |-
+            cache-control: public,no-cache,proxy-revalidate

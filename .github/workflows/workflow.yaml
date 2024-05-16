@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - master
-    tags:
-      - '*'
   pull_request:
     branches:
       - master
@@ -67,39 +65,6 @@ jobs:
         with:
           path: dist/
           destination: releases.rancher.com/install-docker-dev
-          parent: false
-          predefinedAcl: publicRead
-          headers: |-
-            cache-control: public,no-cache,proxy-revalidate
-
-  upload:
-    permissions:
-      contents: read
-      id-token: write
-    needs: validate
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    if: github.event_name == 'push' && github.ref_type == 'tag'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Add tag to version file
-        run: |
-          echo "{\"version\": \"${{ github.ref_name }}\"}" > dist/VERSION
-      - name: Retrieve Google auth from vault
-        uses: rancher-eio/read-vault-secrets@main
-        with:
-          secrets: |
-            secret/data/github/repo/${{ github.repository }}/google-auth/rancher/credentials token | GOOGLE_AUTH
-      - name: Authenticate with Google Cloud
-        uses: 'google-github-actions/auth@v2'
-        with:
-          credentials_json: '${{ env.GOOGLE_AUTH }}'
-      - name: Upload to Google Cloud Storage
-        uses: google-github-actions/upload-cloud-storage@v2
-        with:
-          path: dist/
-          destination: releases.rancher.com/install-docker
           parent: false
           predefinedAcl: publicRead
           headers: |-
