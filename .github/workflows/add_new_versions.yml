@@ -31,7 +31,7 @@ jobs:
       - name: Check if new versions available
         id: check-versions
         run: |
-          python workflow_scripts/check-for-new-versions.py
+          python -u workflow_scripts/check-for-new-versions.py
         env:
           EXCLUDED_VERSIONS: "v20.10.x,v23.0.x"
       
@@ -54,7 +54,7 @@ jobs:
         env:
           NEW_VERSIONS: ${{ env.NEW_VERSIONS }}
         run: |
-          python workflow_scripts/gen-new-version-files.py
+          python -u workflow_scripts/gen-new-version-files.py
 
       - name: Create branch, commit and push
         if: ${{ env.pr_exist == 'false' && env.PR_TITLE != '' }}
