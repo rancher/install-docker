@@ -3,7 +3,7 @@ import requests
 
 # Constants
 DIST_FOLDER = './dist'
-EXCLUDED_VERSIONS = os.environ.get('EXCLUDED_VERSIONS', 'v20.10.x,v23.0.x')
+EXCLUDED_VERSIONS = os.environ.get('EXCLUDED_VERSIONS', 'v20.10.x,v23.0.x,v26.1.x')
 
 def get_excluded_version_patterns(excluded_ver_str):
     excluded_ver_list = excluded_ver_str.split(',')
