@@ -33,7 +33,7 @@ jobs:
         run: |
           python -u workflow_scripts/check-for-new-versions.py
         env:
-          EXCLUDED_VERSIONS: "v20.10.x,v23.0.x,v26.1.x"
+          EXCLUDED_VERSIONS: "v20.10.x,v23.0.x,v25.0.x,v26.1.x"
       
       - name: check if the PR exist
         if: ${{ env.PR_TITLE != '' }}
