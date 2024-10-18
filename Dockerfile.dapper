@@ -1,4 +1,4 @@
-FROM docker:20.10.6-dind
+FROM docker:27.0.1-dind
 
 RUN apk -U add wget curl bash git make gettext patch diffutils
 
