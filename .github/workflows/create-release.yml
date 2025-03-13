@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     container: 
-      image: rancher/dapper:v0.6.0
+      image: rancher/dapper:1.12.1
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
