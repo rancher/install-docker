@@ -27,7 +27,7 @@ jobs:
       contents: read
     needs: validate
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     if: github.event_name == 'pull_request'
     container: 
       image: rancher/dapper:v0.6.0
