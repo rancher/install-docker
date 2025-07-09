@@ -1,0 +1,234 @@
+--- 28.2.2.orig.sh	2025-07-09 00:13:15.674464069 +0000
++++ 28.2.2.sh	2025-07-09 00:13:15.679464116 +0000
+@@ -82,31 +82,34 @@
+ # the script was uploaded (Should only be modified by upload job):
+ SCRIPT_COMMIT_SHA="53a22f61c0628e58e1d6680b49e82993d304b449"
+ 
+-# strip "v" prefix if present
+-VERSION="${VERSION#v}"
+-
+-# The channel to install from:
+-#   * stable
+-#   * test
+-DEFAULT_CHANNEL_VALUE="stable"
+-if [ -z "$CHANNEL" ]; then
+-	CHANNEL=$DEFAULT_CHANNEL_VALUE
+-fi
+-
+-DEFAULT_DOWNLOAD_URL="https://download.docker.com"
+-if [ -z "$DOWNLOAD_URL" ]; then
+-	DOWNLOAD_URL=$DEFAULT_DOWNLOAD_URL
+-fi
+-
+-DEFAULT_REPO_FILE="docker-ce.repo"
+-if [ -z "$REPO_FILE" ]; then
+-	REPO_FILE="$DEFAULT_REPO_FILE"
+-	# Automatically default to a staging repo fora
+-	# a staging download url (download-stage.docker.com)
+-	case "$DOWNLOAD_URL" in
+-		*-stage*) REPO_FILE="docker-ce-staging.repo";;
+-	esac
+-fi
++CHANNEL="stable"
++DOWNLOAD_URL="https://download.docker.com"
++REPO_FILE="docker-ce.repo"
++VERSION="28.2.2"
++DIND_TEST_WAIT=${DIND_TEST_WAIT:-3s}  # Wait time until docker start at dind test env
++
++# Issue https://github.com/rancher/rancher/issues/29246
++adjust_repo_releasever() {
++    DOWNLOAD_URL="https://download.docker.com"
++    case $1 in
++    8*)
++        releasever=8
++        ;;
++    9*)
++        releasever=9
++        ;;
++    *)
++        # fedora, or unsupported
++        return
++        ;;
++    esac
++
++    for channel in "stable" "test" "nightly"; do
++        $sh_c "$config_manager --setopt=docker-ce-${channel}.baseurl=${DOWNLOAD_URL}/linux/rhel/${releasever}/\\\$basearch/${channel} --save";
++        $sh_c "$config_manager --setopt=docker-ce-${channel}-debuginfo.baseurl=${DOWNLOAD_URL}/linux/rhel/${releasever}/debug-\\\$basearch/${channel} --save";
++        $sh_c "$config_manager --setopt=docker-ce-${channel}-source.baseurl=${DOWNLOAD_URL}/linux/rhel/${releasever}/source/${channel} --save";
++    done
++}
+ 
+ mirror=''
+ DRY_RUN=${DRY_RUN:-}
+@@ -157,7 +160,17 @@
+ 		exit 1
+ 		;;
+ esac
+-
++start_docker() {
++    if [ ! -z $DIND_TEST ]; then
++        # Starting dockerd manually due to dind env is not using systemd
++        dockerd &
++        sleep $DIND_TEST_WAIT
++    elif [ -d '/run/systemd/system' ] ; then
++        $sh_c 'systemctl start docker'
++    else
++        $sh_c 'service docker start'
++    fi
++}
+ command_exists() {
+ 	command -v "$@" > /dev/null 2>&1
+ }
+@@ -457,12 +470,18 @@
+ 			esac
+ 		;;
+ 
+-		centos|rhel)
++		centos|rhel|sles|rocky)
+ 			if [ -z "$dist_version" ] && [ -r /etc/os-release ]; then
+ 				dist_version="$(. /etc/os-release && echo "$VERSION_ID")"
+ 			fi
+ 		;;
+ 
++		oracleserver|ol)
++			lsb_dist="ol"
++			# need to switch lsb_dist to match yum repo URL
++			dist_version="$(rpm -q --whatprovides redhat-release --queryformat "%{VERSION}\n" | sed 's/\/.*//' | sed 's/\..*//' | sed 's/Server*//')"
++		;;
++
+ 		*)
+ 			if command_exists lsb_release; then
+ 				dist_version="$(lsb_release --release | cut -f2)"
+@@ -560,16 +579,20 @@
+ 					set -x
+ 				fi
+ 				$sh_c "DEBIAN_FRONTEND=noninteractive apt-get -y -qq install $pkgs >/dev/null"
++				start_docker
+ 			)
+ 			echo_docker_as_nonroot
+ 			exit 0
+ 			;;
+-		centos|fedora|rhel)
++		centos|fedora|rhel|ol|rocky)
+ 			if [ "$(uname -m)" = "s390x" ]; then
+ 				echo "Effective v27.5, please consult RHEL distro statement for s390x support."
+ 				exit 1
+ 			fi
+ 			repo_file_url="$DOWNLOAD_URL/linux/$lsb_dist/$REPO_FILE"
++			if [ "$lsb_dist" = "ol" ] || [ "$lsb_dist" = "rocky" ] || [ "$lsb_dist" = "rhel" ]; then
++				repo_file_url="$DOWNLOAD_URL/linux/rhel/$REPO_FILE"
++			fi
+ 			(
+ 				if ! is_dry_run; then
+ 					set -x
+@@ -663,13 +686,107 @@
+ 				fi
+ 				$sh_c "$pkg_manager $pkg_manager_flags install $pkgs"
+ 			)
+-			echo_docker_as_nonroot
++           echo_docker_as_nonroot
+ 			exit 0
+ 			;;
+ 		sles)
+-			echo "Effective v27.5, please consult SLES distro statement for s390x support."
+-			exit 1
++			if [ "$(uname -m)" != "s390x" ]; then
++				echo "Packages for SLES are currently only available for s390x"
++				exit 1
++			fi
++			if [ "$dist_version" = "15.3" ]; then
++				sles_version="SLE_15_SP3"
++			else
++				sles_version="SLE_15_SP2"
++			fi
++			repo_file_url="$DOWNLOAD_URL/linux/$lsb_dist/$REPO_FILE"
++			pre_reqs="ca-certificates curl libseccomp2 awk"
++			(
++				if ! is_dry_run; then
++					set -x
++				fi
++				$sh_c "zypper install -y $pre_reqs"
++				$sh_c "rm -f /etc/zypp/repos.d/docker-ce-*.repo"
++				$sh_c "zypper addrepo $repo_file_url"
++
++				opensuse_factory_url="https://download.opensuse.org/repositories/security:/SELinux/openSUSE_Factory/"
++				if ! zypper lr -d | grep -q "${opensuse_factory_url}"; then
++					opensuse_repo="${opensuse_factory_url}security:SELinux.repo"
++					if ! is_dry_run; then
++						cat >&2 <<- EOF
++							WARNING!!
++							openSUSE repository ($opensuse_repo) will be enabled now.
++							Do you wish to continue?
++							You may press Ctrl+C now to abort this script.
++						EOF
++						( set -x; sleep 20 )
++					fi
++					$sh_c "zypper addrepo $opensuse_repo"
++				fi
++				$sh_c "zypper --gpg-auto-import-keys refresh"
++				$sh_c "zypper lr -d"
++			)
++			pkg_version=""
++			if [ -n "$VERSION" ]; then
++				if is_dry_run; then
++					echo "# WARNING: VERSION pinning is not supported in DRY_RUN"
++				else
++					pkg_pattern="$(echo "$VERSION" | sed 's/-ce-/\\\\.ce.*/g' | sed 's/-/.*/g')"
++					search_command="zypper search -s --match-exact 'docker-ce' | grep '$pkg_pattern' | tail -1 | awk '{print \$6}'"
++					pkg_version="$($sh_c "$search_command")"
++					echo "INFO: Searching repository for VERSION '$VERSION'"
++					echo "INFO: $search_command"
++					if [ -z "$pkg_version" ]; then
++						echo
++						echo "ERROR: '$VERSION' not found amongst zypper list results"
++						echo
++						exit 1
++					fi
++					search_command="zypper search -s --match-exact 'docker-ce-cli' | grep '$pkg_pattern' | tail -1 | awk '{print \$6}'"
++					# It's okay for cli_pkg_version to be blank, since older versions don't support a cli package
++					cli_pkg_version="$($sh_c "$search_command")"
++					pkg_version="-$pkg_version"
++				fi
++			fi
++			(
++				pkgs="docker-ce$pkg_version"
++				if version_gte "18.09"; then
++					if [ -n "$cli_pkg_version" ]; then
++						# older versions didn't ship the cli and containerd as separate packages
++						pkgs="$pkgs docker-ce-cli-$cli_pkg_version containerd.io"
++					else
++						pkgs="$pkgs docker-ce-cli containerd.io"
++					fi
++				fi
++				if version_gte "20.10"; then
++					pkgs="$pkgs docker-compose-plugin docker-ce-rootless-extras$pkg_version"
++				fi
++				if version_gte "23.0"; then
++						pkgs="$pkgs docker-buildx-plugin"
++				fi
++				if ! is_dry_run; then
++					set -x
++				fi
++				$sh_c "zypper -q install -y $pkgs"
++			if ! command_exists iptables; then
++				$sh_c "$pkg_manager install -y -q iptables"
++			fi
++            start_docker
++            )
++			echo_docker_as_nonroot
++			exit 0
+ 			;;
++		rancheros)
++				(
++				set -x
++				$sh_c "sleep 3;ros engine list --update"
++				engine_version="$(sudo ros engine list | awk '{print $2}' | grep ${docker_version} | tail -n 1)"
++				if [ "$engine_version" != "" ]; then
++						$sh_c "ros engine switch -f $engine_version"
++				fi
++				)
++				exit 0
++				;;
+ 		*)
+ 			if [ -z "$lsb_dist" ]; then
+ 				if is_darwin; then
