@@ -23,7 +23,11 @@ def get_last_added_version(files_dir):
                 max_modification_time = modification_time
                 last_added_version = file_version
             elif modification_time == max_modification_time:
-                last_added_version = semver.max_ver(last_added_version,file_version)
+                try:
+                    last_added_version = semver.max_ver(last_added_version,file_version)
+                except ValueError:
+                    print(f"Warning: Skipping non-compliant SemVer string {file_version} from file {file}")
+                    continue
 
     return last_added_version
 
