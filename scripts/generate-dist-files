@@ -35,7 +35,7 @@ for DOCKER_VERSION in $(ls -1 .); do
 			cd docker-install
 			git checkout ${DOCKER_GIT_COMMIT}
 			make
-			cp build/install.sh ../$DOCKER_VERSION.sh
+			cp build/stable/install.sh ../$DOCKER_VERSION.sh
 			cd .. && rm -rf docker-install
 			patch $DOCKER_VERSION.sh $DOCKER_VERSION.diff
 			cd ..
