@@ -15,14 +15,14 @@ done
 
 
 test_docker_versions["ubuntu:22.04"]="^23.0.([4-9]|[1-9]\d)$|^24.0|^25.0|^26.0|^26.1|^27.0|^27.1|^28.0|^28.1|^28.2|^28.3"
-test_docker_versions["ubuntu:24.04"]="^26.0|^26.1|^27.0|^27.1|^28.0|^28.1"
-test_docker_versions["quay.io/centos/centos:stream9"]="^24.0|^25.0|^26.0|^26.1|^27.0|^27.1|^28.0|^28.1"
-test_docker_versions["oraclelinux:8"]="^23.0.([4-9]|[1-9]\d)$|^24.0|^25.0|^26.0|^26.1|^27.0|^27.1|^28.0|^28.1"
-test_docker_versions["oraclelinux:9"]="^23.0.([4-9]|[1-9]\d)$|^24.0|^25.0|^26.0|^26.1|^27.0|^27.1|^28.0|^28.1"
-test_docker_versions["rockylinux:8"]="^23.0.([4-9]|[1-9]\d)$|^24.0|^25.0|^26.0|^26.1|^27.0|^27.1|^28.0|^28.1"
-test_docker_versions["rockylinux:9"]="^23.0.([4-9]|[1-9]\d)$|^24.0|^25.0|^26.0|^26.1|^27.0|^27.1|^28.0|^28.1"
-test_docker_versions["redhat/ubi8:8.9"]="^23.0.([4-9]|[1-9]\d)$|^24.0|^25.0|^26.0|^26.1|^27.0|^27.1|^28.0|^28.1"
-test_docker_versions["redhat/ubi9:9.4"]="^23.0.([4-9]|[1-9]\d)$|^24.0|^25.0|^26.0|^26.1|^27.0|^27.1|^28.0|^28.1"
+test_docker_versions["ubuntu:24.04"]="^26.0|^26.1|^27.0|^27.1|^28.0|^28.1|^28.2|^28.3"
+test_docker_versions["quay.io/centos/centos:stream9"]="^24.0|^25.0|^26.0|^26.1|^27.0|^27.1|^28.0|^28.1|^28.2|^28.3"
+test_docker_versions["oraclelinux:8"]="^27.0|^27.1|^28.0|^28.1|^28.2|^28.3"
+test_docker_versions["oraclelinux:9"]="^23.0.([4-9]|[1-9]\d)$|^24.0|^25.0|^26.0|^26.1|^27.0|^27.1|^28.0|^28.1|^28.2|^28.3"
+test_docker_versions["rockylinux:8"]="^23.0.([4-9]|[1-9]\d)$|^24.0|^25.0|^26.0|^26.1|^27.0|^27.1|^28.0|^28.1|^28.3"
+test_docker_versions["rockylinux:9"]="^23.0.([4-9]|[1-9]\d)$|^24.0|^25.0|^26.0|^26.1|^27.0|^27.1|^28.0|^28.1|^28.3"
+test_docker_versions["redhat/ubi8:8.9"]="^27.0|^27.1|^28.0|^28.1|^28.2|^28.3"
+test_docker_versions["redhat/ubi9:9.4"]="^23.0.([4-9]|[1-9]\d)$|^24.0|^25.0|^26.0|^26.1|^27.0|^27.1|^28.0|^28.1|^28.2|^28.3"
 
 echo "==> Testing install-docker scripts..."
 for DOCKER_VERSION_SCRIPT in $(find ../dist/ -mindepth 1 -type f -exec basename {} \; | sort -V); do
