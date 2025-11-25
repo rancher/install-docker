@@ -45,9 +45,15 @@ def fetch_ten_latest_github_releases(owner, repo):
         return None
 
 def get_version_tuple(version):
-    if version.startswith('v'):
-        version = version[1:]
-    return tuple(map(int, version.split('.')))
+    clean_ver = version
+    if clean_ver.startswith('docker-'):
+        clean_ver = clean_ver.replace('docker-', '')
+    if clean_ver.startswith('v'):
+        clean_ver = clean_ver[1:]
+    try:
+        return tuple(map(int, clean_ver.split('.')))
+    except ValueError:
+        return (0, 0, 0)
 
 def main():
     excluded_ver_patterns = get_excluded_version_patterns(EXCLUDED_VERSIONS)
@@ -55,14 +61,20 @@ def main():
     owner = "moby"
     repo = "moby"
     ten_latest_releases = fetch_ten_latest_github_releases(owner, repo)
-    ten_latest_versions = [release['tag_name'] for release in ten_latest_releases]
-    print("Ten latest versions: ",ten_latest_versions)
+    
+    ten_latest_versions = []
+    for release in ten_latest_releases:
+        tag_name = release['tag_name']
+        if '/' not in tag_name:
+            ten_latest_versions.append(tag_name)
+            
+    print("Ten latest versions (filtered): ", ten_latest_versions)
 
     new_versions = set(ten_latest_versions) - existing_versions
     new_versions = list(filter(lambda ver: not is_excluded_version(excluded_ver_patterns,ver),new_versions))
 
-    sorted_new_versions = sorted(new_versions,key=get_version_tuple)
-    print('New versions: ',sorted_new_versions)
+    sorted_new_versions = sorted(new_versions, key=get_version_tuple)
+    print('New versions: ', sorted_new_versions)
 
     versions_string = ",".join(sorted_new_versions)
     PR_TITLE = ""
@@ -79,8 +91,6 @@ def main():
             envfile.write("NEW_VERSIONS="+versions_string+"\n")
     else:
         exit(1)
-
-
 
 if __name__ == "__main__":
     main()
