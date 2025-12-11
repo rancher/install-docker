@@ -54,8 +54,8 @@ def main():
 
     last_added_version = get_last_added_version(DIST_FOLDER)
     print("Last added version:",last_added_version)
-    
-    version_list = [version.removeprefix('v') for version in NEW_VERSIONS.split(',')]
+
+    version_list = [version.strip().removeprefix('docker-').removeprefix('v') for version in NEW_VERSIONS.split(',')]
     print("Formatted new versions: ", version_list)
 
     for version in version_list:
