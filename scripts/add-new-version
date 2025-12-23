@@ -20,6 +20,6 @@ COMMIT_SHA=$(grep SCRIPT_COMMIT_SHA= ${ADD_DOCKER_VERSION}.sh | awk -F'=' '{ pri
 
 # remove non diff files
 rm -f ${ADD_DOCKER_VERSION}.sh ${ADD_DOCKER_VERSION}.orig.sh
-
+rm -f ${ADD_DOCKER_VERSION}.sh ${ADD_DOCKER_VERSION}.sh.orig
 # Change commit SHA
 cat ../${PREVIOUS_ADD_DOCKER_VERSION}/config.sh | sed '/^DOCKER_GIT_COMMIT=/s/=.*$/="'"${COMMIT_SHA}"'"/' > config.sh
