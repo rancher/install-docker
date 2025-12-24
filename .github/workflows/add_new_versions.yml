@@ -68,6 +68,7 @@ jobs:
         if: ${{ env.pr_exist == 'false' && env.PR_TITLE != '' }}
         env:
           NEW_VERSIONS: ${{ env.NEW_VERSIONS }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           python -u workflow_scripts/gen-new-version-files.py
 
